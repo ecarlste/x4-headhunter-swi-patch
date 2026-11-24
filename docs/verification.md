@@ -169,6 +169,17 @@ From S/M capture pays (#28, spec bug fixes 1 and 2). Save "wanted bounties A" fi
 
 Also for 8a-8c: no new `Error in MD cue` lines from `SCapturedHandler`, `HH_SWI_Patch` or `HH_SWI_Checks` other than the known-harmless `text="null"` line.
 
+### Wanted bounties: Classic Baddies and the victim lists (#27)
+
+From #27 (spec #18 "Classic Baddies and the victim lists", bug fix 3, "Option text"; decisions in #10, #16, #17). The **baddies** are `xenon` (Unknown Threat), `khaak` (Yuuzhan Vong), `sith` (Sith Empire), `huttpirates` (Hutt Pirates), `mandoraiders` (Mandalorian Raiders), `valarian` (Pirate Syndicates) and `blacksun` (Black Sun): SWI's display names on page 999840 (`ext02/t/0001.xml`). Killing one of their ships never makes the killer wanted; with Classic Baddies on, only their ships get wanted bounties, and the player's ships are never hunted. Classic Baddies is "No Faction Wanted Bounties" in "HeadHunter Settings"; line 112 is its mouseover text. Save "wanted bounties A" first. Don't use the helper's "Make the targeted ship wanted" for these rows: it writes the board directly, past the checks under test.
+
+| # | Tier | Action | Expected result | Log line | A |
+|---|---|---|---|---|---|
+| 6, 10 | F | Classic Baddies **off**. With one player ship that isn't wanted, kill a `galempire` ship, note the ship's board figure; then kill one ship each of `xenon`, `khaak`, `sith`, `huttpirates`, `mandoraiders`, `valarian`, `blacksun` with the same ship, checking the board after each. Separately, watch an NPC wanted ship on the board over some play (or "Print the wanted table" now and later) | After the first kill the player ship is on the board; its figure doesn't change with any of the seven baddie kills, and none of them makes another ship wanted. The NPC wanted ship's figure grows with each of its kills | helper "Print the wanted table": `[hh-swi-check] wanted: <player ship> … value …` the same before and after the baddie kills | |
+| 9 | F | Hover "No Faction Wanted Bounties" in "HeadHunter Settings" and read the mouseover text; switch it **on**. From a save with no wanted player ship: kill a `galempire` ship with a player ship, then press "Send hunters now" and let `HunterTimer` run a few ticks (fast timings on). Then let NPC wars run and look at the board | The mouseover reads, word for word: "Only allow classic baddies on the wanted board (Unknown Threat/Yuuzhan Vong/Sith Empire/Pirates)", and "Unknown Threat", "Yuuzhan Vong" and "Sith Empire" match the board's "Wanted Ship"/faction-filter names for those factions. The player ship isn't on the board and no hunters come. Every new board entry is a ship of one of the seven baddie factions | `[hh-swi-check] send hunters: …` says no player-owned wanted ship; no `hunter pick:` line for the player | |
+
+The five translated languages (`l007`, `l033`, `l034`, `l049`, `l086`) keep Head Hunter's "(Xenon/Khaak/Pirates)" text: a known gap (#16), not checked.
+
 ### Hunter groups: spawn (#24)
 
 The roster is the 13 SWI factions with military S, M and L ships and an HQ: `galempire, ascendancy, newrepublic, rebelalliance, corporate, commerceguild, huttcartel, mandodw, anoat, hapes, kamino, valarian, blacksun`. Helper on, fast timings on (save "hunter groups A" first). Get a player-owned ship wanted first: target it and press "Make the targeted ship wanted".
@@ -183,7 +194,7 @@ The roster is the 13 SWI factions with military S, M and L ships and an HQ: `gal
 
 From #23: the features the patch doesn't touch, one action and one expected result each. Their first run is the **baseline** against the patch skeleton, before the feature changes land, so anything already broken on SWI shows up here and not in a later ticket. Numbers are the feature numbers from #2 (the [feature note](https://github.com/ecarlste/x4-headhunter-swi-patch/blob/research/headhunter-features/research/headhunter-features.md)). Options are in SirNukes Extension Options, menu "HeadHunter Settings"; the board is the "Headhunter Wanted Board" menu there. Faction ids are SWI's (`ext02/libraries/factions.xml`), with their English names.
 
-**Getting a wanted ship for rows 11-14.** Until the helper's "make the targeted ship wanted" button exists, let NPC wars fill the board (check the board after some play), or have a player ship kill a lawful faction's ship (e.g. `galempire`, Galactic Empire). On the unpatched skeleton a player kill of an SWI pirate (`blacksun`, `huttpirates`, `mandoraiders`, `valarian`) also makes the player ship wanted (#2 §3.1); that is a later ticket's change, not a smoke failure.
+**Getting a wanted ship for rows 11-14.** Until the helper's "make the targeted ship wanted" button exists, let NPC wars fill the board (check the board after some play), or have a player ship kill a lawful faction's ship (e.g. `galempire`, Galactic Empire). On the unpatched skeleton a player kill of an SWI pirate (`blacksun`, `huttpirates`, `mandoraiders`, `valarian`) also makes the player ship wanted (#2 §3.1); that is #27's change (rows 6/10), not a smoke failure.
 
 **General bounties** (save "general bounties A" first)
 

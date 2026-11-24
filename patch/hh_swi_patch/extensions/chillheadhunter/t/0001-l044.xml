@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<diff>
+  <!-- Classic Baddies on SWI (#27): option line 112 names SWI's baddies by their display names on
+       SWI's page 999840 (Unknown Threat 533110, Yuuzhan Vong 532110, Sith Empire 510110; the four
+       pirate-tagged factions as "Pirates"). English and the fallback file only (#16). -->
+  <replace sel="/language/page[@id='8008574']/t[@id='112']"><t id="112">Only allow classic baddies on the wanted board (Unknown Threat/Yuuzhan Vong/Sith Empire/Pirates)</t></replace>
+  <!-- /Classic Baddies on SWI (#27) -->
+</diff>

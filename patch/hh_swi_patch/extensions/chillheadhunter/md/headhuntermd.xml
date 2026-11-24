@@ -18,6 +18,21 @@
     </do_if>
   </add>
 
+  <!-- Classic Baddies on SWI (#27, spec #18, #10; bug fix 3). Add only: every vanilla id stays.
+       With the option on, killers owned by SWI's baddies (sith, huttpirates, mandoraiders,
+       valarian, blacksun; xenon = Unknown Threat and khaak = Yuuzhan Vong already there) get
+       wanted bounties: the board entry, then the $HHAllWanted add. -->
+  <replace sel="//cue[@name='WantedDestructionTracker']/actions/do_else/do_elseif/@value">global.$HeadHunterClassicBaddies and ($killer.trueowner == faction.xenon or $killer.trueowner == faction.khaak or $killer.trueowner == faction.scaleplate or $killer.trueowner == faction.buccaneers or $killer.trueowner == faction.sith or $killer.trueowner == faction.huttpirates or $killer.trueowner == faction.mandoraiders or $killer.trueowner == faction.valarian or $killer.trueowner == faction.blacksun)</replace>
+  <replace sel="//cue[@name='WantedDestructionTracker']/actions/do_elseif/@value">global.$HeadHunterClassicBaddies and ($killer.trueowner == faction.xenon or $killer.trueowner == faction.khaak or $killer.trueowner == faction.scaleplate or $killer.trueowner == faction.buccaneers or $killer.trueowner == faction.sith or $killer.trueowner == faction.huttpirates or $killer.trueowner == faction.mandoraiders or $killer.trueowner == faction.valarian or $killer.trueowner == faction.blacksun)</replace>
+  <!-- Bug fix 3: with the option on, the player's ships never join $HHAllPlayerWanted, so no
+       hunters are sent after them (the same guard the $HHAllWanted add has) -->
+  <replace sel="//cue[@name='WantedDestructionTracker']/actions/do_if[@value='$killer.isplayerowned and not global.$HHAllPlayerWanted.indexof.{$killer}']/@value">not global.$HeadHunterClassicBaddies and $killer.isplayerowned and not global.$HHAllPlayerWanted.indexof.{$killer}</replace>
+  <!-- "Never posts a bounty" victim lists: killing SWI's baddies never makes the killer wanted,
+       option on or off. The ship list PapaCue fills, and the handler that adds new ships to it. -->
+  <replace sel="//cue[@name='PapaCue']/actions/find_ship[@groupname='global.$HHAllShips']/match[@trueowner]/@trueowner">[faction.buccaneers,faction.civilian,faction.criminal,faction.khaak,faction.ownerless,faction.player,faction.scaleplate,faction.yaki,faction.xenon,faction.visitor,faction.sith,faction.huttpirates,faction.mandoraiders,faction.valarian,faction.blacksun]</replace>
+  <replace sel="//cue[@name='AllShipsHandler']/conditions/check_all/check_object/@owner">[faction.buccaneers,faction.civilian,faction.criminal,faction.khaak,faction.ownerless,faction.player,faction.scaleplate,faction.yaki,faction.xenon,faction.visitor,faction.sith,faction.huttpirates,faction.mandoraiders,faction.valarian,faction.blacksun]</replace>
+  <!-- /Classic Baddies on SWI (#27) -->
+
   <!-- S/M capture pays (#28, spec #18 bug fixes 1 and 2). Head Hunter's SCapturedHandler computes
        the reward of a bailed (abandoned) wanted S/M ship but never transfers it. These ops pay it,
        credits only, when a player-owned ship hit the wanted ship in the last 60 s (the stamp
