@@ -31,3 +31,4 @@ Other versions may work, but they are not tested.
 
 - [SEED.md](SEED.md): the starting brief.
 - [GLOSSARY.md](GLOSSARY.md): the terms used in this repo.
+- [docs/verification.md](docs/verification.md): the checklist, and the offline check (`npm run check`).

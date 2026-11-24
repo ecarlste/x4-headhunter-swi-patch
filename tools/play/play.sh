@@ -8,9 +8,9 @@ X4_PROFILE_ROOT=${X4_PROFILE_ROOT:-'/mnt/c/Users/ecarl/OneDrive/Documents/Egosof
 PROFILE_ID=90000401
 PROFILE="$X4_PROFILE_ROOT/$PROFILE_ID"
 
-# Extension ids (content.xml keys on ids, not folder names). The patch and hh_swi_checks are
-# added here by the tickets that create them.
-ON=('SW Interworlds' 'ws_2992233767' 'ws_2042901274')
+# Extension ids (content.xml keys on ids, not folder names). hh_swi_patch is the patch
+# (patch/hh_swi_patch/). hh_swi_checks is added here by the ticket that creates it.
+ON=('SW Interworlds' 'ws_2992233767' 'ws_2042901274' 'hh_swi_patch')
 OFF=('apirateslife' "Reaper's Ship Pack (SWI)" 'EquipmentTooltips')
 
 die() { echo "play: $*" >&2; exit 1; }

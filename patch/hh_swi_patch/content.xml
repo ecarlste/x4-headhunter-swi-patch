@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Head Hunter on SWI patch (spec #18). It changes Head Hunter 2.0.8 with small diff ops under
+     extensions/chillheadhunter/, using Head Hunter's folder name (X4 8.00 patches another
+     extension's file by path). It holds only selectors and content written here, never Head
+     Hunter's own files. The dependencies name content ids, not folders, so it loads after Head
+     Hunter, SWI and (when present) SirNukes. Off by default: profile 90000401 turns it on
+     (tools/play/play.sh). -->
+<content id="hh_swi_patch" name="Head Hunter on SWI patch" description="Personal testing patch: makes Head Hunter 2.0.8 work with Star Wars Interworlds. Not a release." author="Erik S. Carlsten" version="1" date="2026-11-23" save="0" enabled="0">
+  <dependency version="800"/>
+  <dependency id="ws_2992233767" name="Head Hunter"/>
+  <dependency id="SW Interworlds" name="SW Interworlds"/>
+  <dependency id="ws_2042901274" optional="true" name="SirNukes Mod Support APIs"/>
+</content>

@@ -45,6 +45,7 @@ function defaultExtensions() {
         starwarsmod_m1: '<content id="SW Interworlds" name="SW Interworlds" enabled="0">',
         chillheadhunter: '<content id="ws_2992233767" name="Head Hunter" save="0" enabled="0" sync="false">',
         sn_mod_support_apis: '<content\n  id="ws_2042901274"\n  name="Mod Support APIs"\n  enabled="0">',
+        hh_swi_patch: '<content id="hh_swi_patch" name="Head Hunter on SWI patch" save="0" enabled="0">',
         apirateslife: '<content id="apirateslife" name="A Pirate\'s Life" version="100">',
         starwars_rsp: '<content id="Reaper\'s Ship Pack (SWI)" enabled="0">',
         mycu_equipment_tooltips: '<content id="EquipmentTooltips">',
@@ -92,6 +93,7 @@ test("writes the profile's content.xml: the play mods on, the other mods off, by
   <extension id="SW Interworlds" enabled="true" />
   <extension id="ws_2992233767" enabled="true" />
   <extension id="ws_2042901274" enabled="true" />
+  <extension id="hh_swi_patch" enabled="true" />
   <extension id="apirateslife" enabled="false" />
   <extension id="Reaper's Ship Pack (SWI)" enabled="false" />
   <extension id="EquipmentTooltips" enabled="false" />

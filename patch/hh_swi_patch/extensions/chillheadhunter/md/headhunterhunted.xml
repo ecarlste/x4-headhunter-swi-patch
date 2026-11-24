@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<diff>
+  <!-- C1 canary (docs/verification.md): proves the patch reaches Head Hunter's loose files. Init
+       runs once, when a new game's universe is generated. Remove this op once C1 has passed. -->
+  <add sel="//cue[@name='Init']/actions">
+    <debug_text text="'[hh-swi-patch] canary: the patch reached chillheadhunter/md/headhunterhunted.xml'"/>
+  </add>
+</diff>

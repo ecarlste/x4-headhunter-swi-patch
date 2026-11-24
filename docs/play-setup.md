@@ -13,6 +13,10 @@ A reinstall or update puts the shipped `content.xml` back. `tools/play/play.sh` 
 
 The profile must exist and have a `config.xml`: start the game once with `-personalfolderid 90000401` and quit.
 
+## Installing the patch
+
+Copy this repo's `patch/hh_swi_patch/` folder to the install as `extensions\hh_swi_patch\` (replace the whole folder each time the patch changes). It ships with `enabled="0"`, so only `90000401` loads it. Run the offline check first (`npm run check`, see [verification.md](verification.md#offline-check)).
+
 ## Starting a play session
 
 From WSL, in this repo:
@@ -29,10 +33,10 @@ It does the following, in order, and stops with a message at the first problem:
 4. **Refuses while an installed extension is missing from its on and off lists** (Egosoft's `ego_dlc_*` excepted). So a newly installed mod can't load in play just because its default is on. Add it to `ON` or `OFF` at the top of the script.
 5. **Takes the shared game lock** (`<X4_PATH>\game.lock` and the line in `game.queue\`), waiting its turn behind any `swibh` or A Pirate's Life deploy or game run. It uses A Pirate's Life's `tools/game-lock.sh`, the implementation both repos share. Its rules are in that repo's `tools/README.md`, under "The game lock".
 6. **Writes the profile's `content.xml`.** Extensions are keyed by id, not by folder name:
-   - on: `SW Interworlds`, `ws_2992233767` (Head Hunter), `ws_2042901274` (SirNukes)
+   - on: `SW Interworlds`, `ws_2992233767` (Head Hunter), `ws_2042901274` (SirNukes), `hh_swi_patch` (the patch)
    - off: `apirateslife`, `Reaper's Ship Pack (SWI)` (RSP), `EquipmentTooltips` (Mycu)
 
-   The patch and `hh_swi_checks` get added to these lists by the tickets that create them. The script owns this file, so switches you make in the in-game Extensions menu are overwritten at the next launch.
+   `hh_swi_checks` gets added by the ticket that creates it. The script owns this file, so switches you make in the in-game Extensions menu are overwritten at the next launch.
 7. **Sets `<uisafemode>false</uisafemode>`** in the profile's `config.xml`, keeping every other setting. Protected UI Mode blocks Head Hunter's Lua. Don't switch it in a running game: that hung the UI.
 8. **Starts `X4_nonsteam.exe`** from the install folder with `-skipintro -debug all -logfile debuglog.txt -scriptlogfiles -personalfolderid 90000401` and waits for it to exit. Then it releases the lock, whatever the game's exit code. If the script itself is killed, its lock stops getting heartbeats, and the next in line takes it over after 60 s. The log is `…\Egosoft\X4\90000401\debuglog.txt`.
 
@@ -62,10 +66,6 @@ node --test tools/play/
 
 They run the script against temp folders: a fake install, a fake profile root and a stub in place of the game. They use the real `game-lock.sh` from A Pirate's Life's checkout. Never point the tests at the real install or profiles.
 
-## Checks to run in game (not run yet)
+## Checks in game
 
-These need a real launch by the user:
-
-- `tools/play/play.sh` starts X4 in `90000401`. While the game runs, `game.lock` in the install names `what=play 90000401`. After you quit, it's gone. If the lock is released while the game is still running, `X4_nonsteam.exe` didn't block from WSL, and the script needs another way to wait.
-- In a new SWI game in `90000401`: Head Hunter's "Head Hunter Mod Installed" message appears, and so does its tab on the map (the Headhunter Wanted Board).
-- A launch of `90000201` shows no sign of Head Hunter: no message, no map tab, and no `chillheadhunter` or page `8008574` in its `debuglog.txt`.
+The in-game checks of this setup (the lock is held while the game runs, Head Hunter loads in `90000401`, and nothing of it shows in `90000201`) are rows P1–P3 in [verification.md](verification.md#play-setup-checks).
