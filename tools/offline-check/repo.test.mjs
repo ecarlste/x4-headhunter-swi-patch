@@ -1,0 +1,21 @@
+// The real check: this repo's patch (and the check helper, once it exists) against the installed
+// Head Hunter 2.0.8 at HH_PATH. Skipped where Head Hunter isn't installed.
+// Run: node --test tools/offline-check/
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { DEFAULT_HH_PATH, REPO } from './paths.mjs';
+
+const here = path.dirname(new URL(import.meta.url).pathname);
+const hhPath = process.env.HH_PATH || DEFAULT_HH_PATH;
+const installed = fs.existsSync(path.join(hhPath, 'content.xml'));
+
+test("the patch and the helper are well-formed and every sel matches one node in Head Hunter 2.0.8", { skip: !installed && `Head Hunter not installed at ${hhPath}` }, () => {
+    const version = /<content[^>]*\sversion="(\d+)"/.exec(fs.readFileSync(path.join(hhPath, 'content.xml'), 'utf8'))?.[1];
+    assert.equal(version, '208', `the patch targets Head Hunter 2.0.8; ${hhPath} is version ${version}`);
+    const r = spawnSync(process.execPath, [path.join(here, 'cli.mjs')], { cwd: REPO, encoding: 'utf8', env: { ...process.env, HH_PATH: hhPath } });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stdout, /^ok {2}patch\/hh_swi_patch: \d+ XML files read$/m);
+});

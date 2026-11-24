@@ -1,0 +1,14 @@
+{
+  "name": "hh-swi-patch-tools",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tools/",
+    "check": "node tools/offline-check/cli.mjs"
+  },
+  "devDependencies": {
+    "@xmldom/xmldom": "^0.9.12",
+    "saxes": "^6.0.0",
+    "xpath": "^0.0.36"
+  }
+}
