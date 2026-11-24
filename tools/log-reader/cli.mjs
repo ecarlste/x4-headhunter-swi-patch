@@ -14,9 +14,9 @@ import { DEFAULT_PROFILE_ROOT, playLogPath } from '../offline-check/paths.mjs';
 // "Failed to verify the file signature ... (error: 14)" lines are FileIO notes every loose-file
 // extension gets, not errors.
 const isError = (line) => line.startsWith('[=ERROR=]') || line.includes('Error in MD cue');
-// Head Hunter (its HeadHunter* scripts, its chillheadhunter folder), the patch and the helper
-// (hh_swi_checks, its script HH_SWI_Checks)
-const ours = /headhunter|hh_swi_patch|hh_swi_checks/i;
+// Whether a line names Head Hunter (its HeadHunter* scripts, its chillheadhunter folder), the
+// patch or the helper (hh_swi_checks, its script HH_SWI_Checks)
+const namesHeadHunterPatchOrHelper = /headhunter|hh_swi_patch|hh_swi_checks/i;
 
 // The known-harmless list: its one copy, each entry with its note. match is a regular expression
 // tested against the error line.
@@ -35,19 +35,20 @@ const lines = text.split(/\r?\n/);
 console.log(`reading ${log}`);
 
 let failing = 0;
-const noted = new Set();
+// The known-harmless entries whose note is printed already: each note prints once
+const harmlessNotePrinted = new Set();
 lines.forEach((line, i) => {
     const at = i + 1;
     if (line.includes('[hh-swi-check]')) {
         console.log(`${at}: ${line}`);
         return;
     }
-    if (!isError(line) || !ours.test(line)) return;
+    if (!isError(line) || !namesHeadHunterPatchOrHelper.test(line)) return;
     const entry = harmless.find((h) => h.re.test(line));
     if (entry) {
         console.log(`harmless ${at}: ${line}`);
-        if (!noted.has(entry)) console.log(`     (known harmless: ${entry.why})`);
-        noted.add(entry);
+        if (!harmlessNotePrinted.has(entry)) console.log(`     (known harmless: ${entry.why})`);
+        harmlessNotePrinted.add(entry);
         return;
     }
     failing++;

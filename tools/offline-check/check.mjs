@@ -161,14 +161,14 @@ export function checkDiffs(extDir, targets, earlier = []) {
             bad.push(`${rel}: ${label} doesn't parse: ${doc}`);
             continue;
         }
-        const by = earlier.filter((e) => fs.existsSync(path.join(e, rel))).map((e) => path.basename(e));
-        const where = by.length ? `${label} patched by ${by.join(', ')}` : label;
+        const patchedBy = earlier.filter((e) => fs.existsSync(path.join(e, rel))).map((e) => path.basename(e));
+        const countedIn = patchedBy.length ? `${label} patched by ${patchedBy.join(', ')}` : label;
         for (const op of elementChildren(diff)) {
             const sel = op.getAttribute('sel') ?? '';
             const cond = op.getAttribute('if');
             const head = opLabel(rel, op);
             if (cond !== null) {
-                const problem = ifProblem(cond, doc, where);
+                const problem = ifProblem(cond, doc, countedIn);
                 if (problem) {
                     bad.push(`${head}: ${problem}`);
                     continue;
@@ -176,7 +176,7 @@ export function checkDiffs(extDir, targets, earlier = []) {
             }
             const count = countPath(sel, doc);
             if (typeof count === 'string') bad.push(`${head}: ${count}`);
-            else (count === 1 ? notes : bad).push(`${head} matches ${plural(count)} in ${where}`);
+            else (count === 1 ? notes : bad).push(`${head} matches ${plural(count)} in ${countedIn}`);
         }
     }
     return { notes, bad };
