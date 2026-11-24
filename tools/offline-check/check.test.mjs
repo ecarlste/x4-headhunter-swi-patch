@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { checkDiffs, checkWellFormed } from './check.mjs';
+import { checkContent, checkDiffs, checkOwnMd, checkWellFormed, xsdElementNames } from './check.mjs';
 
 // A temp folder with the given files (relative path -> text)
 function tree(files) {
@@ -116,5 +116,70 @@ test("an op's if must hold on the installed file: a path matches one node, a not
         `${head} if="//cue[@name='Gone']">: if matches 0 nodes in target/md/fake.xml (the op would be skipped)`,
         `${head} if="not(//cue[@name='Other'])">: if's path matches 1 node in target/md/fake.xml (the op would be skipped)`,
         `${head} if="//set_value">: if matches 2 nodes in target/md/fake.xml (want exactly 1)`,
+    ]);
+});
+
+test("content.xml: its id is the folder's name, it ships off, and it requires each given id (not optionally)", () => {
+    const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'hh-offline-content-'));
+    const write = (folder, xml) => {
+        fs.mkdirSync(path.join(parent, folder));
+        fs.writeFileSync(path.join(parent, folder, 'content.xml'), xml);
+        return path.join(parent, folder);
+    };
+    const good = write('helper', `<content id="helper" name="x" enabled="0">
+  <dependency version="800"/>
+  <dependency id="the_patch" name="p"/>
+</content>`);
+    assert.deepEqual(checkContent(good, ['the_patch']), { notes: ['content.xml: id helper, off by default, requires the_patch'], bad: [] });
+
+    const wrong = write('other', `<content id="helper" enabled="1">
+  <dependency id="the_patch" optional="true"/>
+</content>`);
+    assert.deepEqual(checkContent(wrong, ['the_patch', 'sirnukes']).bad, [
+        'content.xml: id "helper" is not the folder\'s name "other"',
+        'content.xml: enabled="1": it must ship off (enabled="0")',
+        'content.xml: the dependency on the_patch is optional; it must be required',
+        'content.xml: no dependency on sirnukes',
+    ]);
+
+    const none = fs.mkdtempSync(path.join(os.tmpdir(), 'hh-offline-nocontent-'));
+    assert.deepEqual(checkContent(none, []).bad, ['no content.xml']);
+});
+
+// A stand-in for X4's md.xsd and common.xsd: hand-written, declaring a few element names
+const fakeXsd = () => tree({
+    'md.xsd': `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="common.xsd"/>
+  <xs:element name="mdscript"/><xs:element name="cues"/><xs:element name="cue"/><xs:element name="conditions"/>
+  <xs:element name="actions"/><xs:element name="event_cue_signalled"/></xs:schema>`,
+    'common.xsd': `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="debug_text"/></xs:schema>`,
+});
+
+test('xsdElementNames reads every element name md.xsd and common.xsd declare', () => {
+    assert.deepEqual([...xsdElementNames(fakeXsd())].sort(),
+        ['actions', 'conditions', 'cue', 'cues', 'debug_text', 'event_cue_signalled', 'mdscript']);
+});
+
+test("the extension's own MD scripts: named after their file, unique cue names, only elements X4's schema knows", () => {
+    const known = xsdElementNames(fakeXsd());
+    const ext = tree({
+        'md/my_checks.xml': `<mdscript name="My_Checks"><cues>
+  <cue name="Log" instantiate="true"><conditions><event_cue_signalled/></conditions><actions><debug_text text="'x'"/></actions></cue>
+</cues></mdscript>`,
+        'extensions/target/md/x.xml': '<diff/>',
+    });
+    assert.deepEqual(checkOwnMd(ext, known), { notes: ['md/my_checks.xml: mdscript My_Checks, 1 cue'], bad: [] });
+
+    const broken = tree({
+        'md/my_checks.xml': `<mdscript name="Other"><cues>
+  <cue name="A"><actions><debug_txt text="'x'"/></actions></cue>
+  <cue name="A"><actions/></cue>
+</cues></mdscript>`,
+        'md/notmd.xml': '<diff/>',
+    });
+    assert.deepEqual(checkOwnMd(broken, known).bad, [
+        'md/my_checks.xml: mdscript name "Other" is not the file\'s name "my_checks"',
+        'md/my_checks.xml: cue name "A" is used 2 times',
+        'md/my_checks.xml: <debug_txt> is not an element in X4\'s md.xsd or common.xsd',
+        'md/notmd.xml: the root is <diff>, not <mdscript>',
     ]);
 });

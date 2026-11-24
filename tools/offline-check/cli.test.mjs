@@ -61,3 +61,27 @@ test('skips an extension folder that does not exist yet, saying so', () => {
     assert.equal(r.code, 0, r.out + r.err);
     assert.match(r.out, /no-such-ext: not there yet, skipped/);
 });
+
+const xsd = () => tree({
+    'md.xsd': '<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="mdscript"/><xs:element name="cues"/></xs:schema>',
+    'common.xsd': '<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>',
+});
+
+test("checks the helper's and the patch's content.xml by folder name: the helper must require the patch", () => {
+    const parent = tree({
+        'hh_swi_checks/content.xml': '<content id="hh_swi_checks" enabled="0"><dependency id="ws_2042901274"/></content>',
+    });
+    const r = run([path.join(parent, 'hh_swi_checks')], { HH_PATH: hh(), X4_XSD_PATH: xsd() });
+    assert.equal(r.code, 1);
+    assert.match(r.out, /BAD .*content\.xml: no dependency on hh_swi_patch/);
+});
+
+test("checks an extension's own MD scripts against X4's schema at X4_XSD_PATH", () => {
+    const ext = tree({ 'md/mine.xml': '<mdscript name="Mine"><cues><cue name="A"/></cues></mdscript>' });
+    const r = run([ext], { HH_PATH: hh(), X4_XSD_PATH: xsd() });
+    assert.equal(r.code, 1);
+    assert.match(r.out, /BAD .*md\/mine\.xml: <cue> is not an element in X4's md\.xsd/);
+    const missing = run([ext], { HH_PATH: hh(), X4_XSD_PATH: path.join(os.tmpdir(), 'no-such-xsd') });
+    assert.equal(missing.code, 1);
+    assert.match(missing.out, /BAD .*X4's md\.xsd isn't at .*no-such-xsd/);
+});

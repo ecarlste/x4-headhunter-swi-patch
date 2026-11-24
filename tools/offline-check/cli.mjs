@@ -1,16 +1,33 @@
 #!/usr/bin/env node
-// The offline check of the patch and the check helper: every XML file is well-formed, and every
-// diff under extensions/chillheadhunter/ matches exactly one node in the installed Head Hunter
-// (read from HH_PATH at run time, never copied into the repo).
+// The offline check of the patch and the check helper: every XML file is well-formed, every diff
+// under extensions/chillheadhunter/ matches exactly one node in the installed Head Hunter (read
+// from HH_PATH at run time, never copied into the repo), the extension's own MD scripts use only
+// elements X4's schema knows (X4_XSD_PATH), and this repo's extensions' content.xml (by folder
+// name, see REQUIRES) ship off and require what they load after.
 // Run: node tools/offline-check/cli.mjs [extension folder ...]   (npm run check)
 // With no folders it checks the patch and the check helper in this repo.
 import fs from 'node:fs';
 import path from 'node:path';
-import { checkDiffs, checkWellFormed } from './check.mjs';
-import { DEFAULT_EXTENSIONS, DEFAULT_HH_PATH } from './paths.mjs';
+import { checkContent, checkDiffs, checkOwnMd, checkWellFormed, xsdElementNames } from './check.mjs';
+import { DEFAULT_EXTENSIONS, DEFAULT_HH_PATH, DEFAULT_XSD_PATH, REQUIRES } from './paths.mjs';
 
 const hhPath = process.env.HH_PATH || DEFAULT_HH_PATH;
+const xsdPath = process.env.X4_XSD_PATH || DEFAULT_XSD_PATH;
 const extensions = process.argv.length > 2 ? process.argv.slice(2).map((p) => path.resolve(p)) : DEFAULT_EXTENSIONS;
+
+let known;
+function ownMd(ext) {
+    if (!fs.existsSync(path.join(ext, 'md'))) return { notes: [], bad: [] };
+    if (known === undefined) {
+        try {
+            known = xsdElementNames(xsdPath);
+        } catch {
+            known = null;
+        }
+    }
+    if (!known) return { notes: [], bad: [`X4's md.xsd isn't at ${xsdPath}: set X4_XSD_PATH to the vanilla game's libraries/`] };
+    return checkOwnMd(ext, known);
+}
 
 let bad = 0;
 for (const ext of extensions) {
@@ -19,7 +36,10 @@ for (const ext of extensions) {
         console.log(`${name}: not there yet, skipped`);
         continue;
     }
-    for (const result of [checkWellFormed(ext), checkDiffs(ext, { chillheadhunter: hhPath })]) {
+    const requires = REQUIRES[path.basename(ext)];
+    const results = [checkWellFormed(ext), checkDiffs(ext, { chillheadhunter: hhPath }), ownMd(ext)];
+    if (requires) results.push(checkContent(ext, requires));
+    for (const result of results) {
         for (const line of result.notes) console.log(`ok  ${name}: ${line}`);
         for (const line of result.bad) console.log(`BAD ${name}: ${line}`);
         bad += result.bad.length;

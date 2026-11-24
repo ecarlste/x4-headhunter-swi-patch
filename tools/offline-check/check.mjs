@@ -159,3 +159,78 @@ export function checkDiffs(extDir, targets) {
     }
     return { notes, bad };
 }
+
+// Check 3: the extension's content.xml names it by its folder (id = folder, so a dependency by id
+// and a path by folder can't be confused), ships off (only profile 90000401 turns it on), and
+// requires each id in requires (an optional dependency doesn't fix the load order it's there for)
+export function checkContent(extDir, requires) {
+    const file = path.join(extDir, 'content.xml');
+    if (!fs.existsSync(file)) return { notes: [], bad: ['no content.xml'] };
+    let content;
+    try {
+        content = parseXml(fs.readFileSync(file, 'utf8')).documentElement;
+    } catch {
+        return { notes: [], bad: [] }; // the well-formed check fails it
+    }
+    const bad = [];
+    const id = content.getAttribute('id');
+    const folder = path.basename(extDir);
+    if (id !== folder) bad.push(`content.xml: id "${id}" is not the folder's name "${folder}"`);
+    const enabled = content.getAttribute('enabled');
+    if (enabled !== '0' && enabled !== 'false') bad.push(`content.xml: enabled="${enabled ?? ''}": it must ship off (enabled="0")`);
+    const deps = elementChildren(content).filter((el) => el.tagName === 'dependency');
+    for (const want of requires) {
+        const dep = deps.find((el) => el.getAttribute('id') === want);
+        if (!dep) bad.push(`content.xml: no dependency on ${want}`);
+        else if (['true', '1'].includes(dep.getAttribute('optional'))) bad.push(`content.xml: the dependency on ${want} is optional; it must be required`);
+    }
+    const notes = bad.length ? [] : [`content.xml: id ${id}, off by default, requires ${requires.join(', ')}`];
+    return { notes, bad };
+}
+
+// Every element name X4's MD schema declares: md.xsd and the common.xsd it includes, in xsdDir
+// (the vanilla game's libraries/, read at run time)
+export function xsdElementNames(xsdDir) {
+    const names = new Set();
+    for (const file of ['md.xsd', 'common.xsd']) {
+        const text = fs.readFileSync(path.join(xsdDir, file), 'utf8');
+        for (const m of text.matchAll(/<xs:element\s+name="([^"]+)"/g)) names.add(m[1]);
+    }
+    return names;
+}
+
+// Check 4: the extension's own MD scripts (md/*.xml, not its diffs of other extensions). X4 wants
+// an mdscript's name to match its file's name; cue names must be unique in a script (a cue
+// reference picks one); and every element must be one the MD schema knows, which catches a
+// misspelt action or condition that X4 would only report at load.
+export function checkOwnMd(extDir, knownElements) {
+    const notes = [];
+    const bad = [];
+    for (const rel of xmlFiles(extDir).filter((r) => r.startsWith('md/'))) {
+        let root;
+        try {
+            root = parseXml(fs.readFileSync(path.join(extDir, rel), 'utf8')).documentElement;
+        } catch {
+            continue; // the well-formed check fails it
+        }
+        if (root.tagName !== 'mdscript') {
+            bad.push(`${rel}: the root is <${root.tagName}>, not <mdscript>`);
+            continue;
+        }
+        const before = bad.length;
+        const name = root.getAttribute('name') ?? '';
+        const fileName = path.basename(rel, '.xml');
+        if (name.toLowerCase() !== fileName.toLowerCase()) bad.push(`${rel}: mdscript name "${name}" is not the file's name "${fileName}"`);
+        const all = Array.from(root.getElementsByTagName('*'));
+        const counts = new Map();
+        for (const cue of all.filter((el) => el.tagName === 'cue')) {
+            const n = cue.getAttribute('name');
+            counts.set(n, (counts.get(n) ?? 0) + 1);
+        }
+        for (const [n, c] of counts) if (c > 1) bad.push(`${rel}: cue name "${n}" is used ${c} times`);
+        const unknown = new Set([root, ...all].map((el) => el.tagName).filter((t) => !knownElements.has(t)));
+        for (const t of unknown) bad.push(`${rel}: <${t}> is not an element in X4's md.xsd or common.xsd`);
+        if (bad.length === before) notes.push(`${rel}: mdscript ${name}, ${plural(counts.size).replace('node', 'cue')}`);
+    }
+    return { notes, bad };
+}
