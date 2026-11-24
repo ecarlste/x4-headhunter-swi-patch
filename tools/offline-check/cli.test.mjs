@@ -76,6 +76,26 @@ test("checks the helper's and the patch's content.xml by folder name: the helper
     assert.match(r.out, /BAD .*content\.xml: no dependency on hh_swi_patch/);
 });
 
+test("counts the helper's sels on Head Hunter patched by the patch it requires, so a patch op that removes a helper target goes red", () => {
+    const helperOp = `<diff><add sel="//cue[@name='Init']/actions/set_value" pos="after"/></diff>`;
+    const parent = tree({
+        'hh_swi_patch/extensions/chillheadhunter/md/hunted.xml': `<diff><add sel="//cue[@name='Init']/actions"><set_value name="$x"/></add></diff>`,
+        'hh_swi_checks/extensions/chillheadhunter/md/hunted.xml': helperOp,
+    });
+    const exts = ['hh_swi_patch', 'hh_swi_checks'].map((f) => path.join(parent, f));
+    const r = run(exts, { HH_PATH: hh() });
+    assert.match(r.out, /ok {2}.*hh_swi_checks: .*matches 1 node in chillheadhunter\/md\/hunted\.xml patched by hh_swi_patch/);
+    assert.doesNotMatch(r.out, /BAD .*hunted\.xml/);
+    const breaking = tree({
+        'hh_swi_patch/extensions/chillheadhunter/md/hunted.xml': `<diff><remove sel="//cue[@name='Init']/actions"/></diff>`,
+        'hh_swi_checks/extensions/chillheadhunter/md/hunted.xml': helperOp,
+    });
+    const broken = run(['hh_swi_patch', 'hh_swi_checks'].map((f) => path.join(breaking, f)), { HH_PATH: hh() });
+    assert.equal(broken.code, 1);
+    assert.match(broken.out, /BAD .*hh_swi_checks: .*matches 0 nodes in chillheadhunter\/md\/hunted\.xml patched by hh_swi_patch/);
+    assert.match(broken.out, /ok {2}.*hh_swi_patch: .*<remove sel="\/\/cue\[@name='Init'\]\/actions"> matches 1 node in chillheadhunter\/md\/hunted\.xml$/m);
+});
+
 test("checks libraries/equipmentmods.xml on vanilla (X4_PATH) + Timelines, with Head Hunter's and SWI's (SWI_PATH) diffs in either order", () => {
     const x4 = tree({
         'base/libraries/equipmentmods.xml': '<equipmentmods><engine/><ship><hull ware="v"/></ship></equipmentmods>',
@@ -83,7 +103,7 @@ test("checks libraries/equipmentmods.xml on vanilla (X4_PATH) + Timelines, with 
     });
     const swi = tree({ 'libraries/equipmentmods.xml': '<diff><replace sel="/equipmentmods"><equipmentmods><ship><hull ware="s"/></ship></equipmentmods></replace></diff>' });
     const hhWithMod = tree({ 'libraries/equipmentmods.xml': '<diff><add sel="//equipmentmods/ship"><radar ware="hh"/></add></diff>' });
-    const ext = tree({ 'libraries/equipmentmods.xml': `<diff><add sel="/equipmentmods/ship" if="not(//radar[@ware='hh'])"><radar ware="hh"/></add></diff>` });
+    const ext = tree({ 'libraries/equipmentmods.xml': `<diff><!-- hh-copy: re-adds Head Hunter's entry --><add sel="/equipmentmods/ship" if="not(//radar[@ware='hh'])"><radar ware="hh"/></add></diff>` });
     const r = run([ext], { HH_PATH: hhWithMod, X4_PATH: x4, SWI_PATH: swi });
     assert.equal(r.code, 0, r.out + r.err);
     assert.match(r.out, /ok {2}.*matches 1 node in Head Hunter before SWI; after it, \/\/radar\[@ware='hh'\] matches 1 node/);

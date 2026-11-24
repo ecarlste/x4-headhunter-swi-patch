@@ -10,6 +10,7 @@
        most of vanilla 8.00's guarded ops have (48 of 67, e.g. ego_dlc_timelines' wares.xml),
        keeps the expected skip out of the log; the offline checker still checks the sel in both
        orders. -->
+  <!-- hh-copy: the radar mod's data entry, re-created with Head Hunter's values (the standing rule's one data-entry exception) -->
   <add sel="/equipmentmods/ship" if="not(//radarrange[@ware='mod_ship_radarrange_01_mk1_headhunter'])" silent="1">
     <radarrange ware="mod_ship_radarrange_01_mk1_headhunter" quality="2" min="1.45" max="1.45"/>
   </add>

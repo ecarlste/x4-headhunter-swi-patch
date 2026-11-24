@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { applyDiff, checkBaseDiffs, checkContent, checkDiffs, checkOwnMd, checkWellFormed, parseXml, xsdElementNames } from './check.mjs';
+import { applyDiff, checkBaseDiffs, checkContent, checkCopies, checkDiffs, checkOwnMd, checkWellFormed, parseXml, xsdElementNames } from './check.mjs';
 
 // A temp folder with the given files (relative path -> text)
 function tree(files) {
@@ -74,6 +74,41 @@ test("each diff sel under extensions/<folder>/ must match exactly one node in th
         `extensions/target/md/fake.xml: <add sel="//set_value[@name='$a']"> matches 2 nodes in target/md/fake.xml`,
         `extensions/target/md/fake.xml: <add sel="//cue[@name='Gone']"> matches 0 nodes in target/md/fake.xml`,
         `extensions/target/md/fake.xml: <add sel="//cue[@name='Init'">: not a valid XPath`,
+    ]);
+});
+
+test("the check helper's sels are counted on Head Hunter with the patch applied, and the patch's on unpatched Head Hunter", () => {
+    const target = tree({ 'md/fake.xml': targetScript });
+    const patch = tree({
+        'extensions/target/md/fake.xml': `<diff>
+  <add sel="//cue[@name='Init']/actions"><do_if value="true" comment="patch"/></add>
+  <remove sel="//cue[@name='Other']/actions/do_if"/>
+</diff>
+`,
+    });
+    const helper = tree({
+        'extensions/target/md/fake.xml': `<diff>
+  <add sel="//cue[@name='Init']/actions/do_if[@comment='patch']" pos="after"/>
+</diff>
+`,
+    });
+    const own = checkDiffs(patch, { target });
+    assert.deepEqual(own.bad, []);
+    const patched = checkDiffs(helper, { target }, [patch]);
+    assert.deepEqual(patched.bad, []);
+    assert.deepEqual(patched.notes, [
+        `extensions/target/md/fake.xml: <add sel="//cue[@name='Init']/actions/do_if[@comment='patch']"> matches 1 node in target/md/fake.xml patched by ${path.basename(patch)}`,
+    ]);
+    assert.equal(checkDiffs(helper, { target }).bad.length, 1, 'unpatched, the helper op has nothing to target');
+});
+
+test('a patch op that removes a node the check helper targets makes the helper check bad', () => {
+    const target = tree({ 'md/fake.xml': targetScript });
+    const patch = tree({ 'extensions/target/md/fake.xml': `<diff><remove sel="//cue[@name='Other']/actions/do_if"/></diff>` });
+    const helper = tree({ 'extensions/target/md/fake.xml': `<diff><add sel="//cue[@name='Other']/actions/do_if" pos="before"/></diff>` });
+    assert.deepEqual(checkDiffs(helper, { target }).bad, []);
+    assert.deepEqual(checkDiffs(helper, { target }, [patch]).bad, [
+        `extensions/target/md/fake.xml: <add sel="//cue[@name='Other']/actions/do_if"> matches 0 nodes in target/md/fake.xml patched by ${path.basename(patch)}`,
     ]);
 });
 
@@ -245,4 +280,40 @@ test('a base-game diff is checked on every load order of the files it patches: i
     assert.deepEqual(checkBaseDiffs(unknown, orders).bad, ['libraries/wares.xml: no base-game file and load orders are known to the checker']);
     const missing = { 'libraries/equipmentmods.xml': [{ label: 'gone', files: [at('nope.xml')] }] };
     assert.deepEqual(checkBaseDiffs(good, missing).bad, [`libraries/equipmentmods.xml: gone: ${at('nope.xml')} isn't there`]);
+});
+
+test("an element a diff adds or replaces must not equal one in Head Hunter (tag, attributes and children), unless an hh-copy comment above its op gives the reason", () => {
+    const target = tree({
+        'md/fake.xml': targetScript,
+        'md/other.xml': '<mdscript name="Other"><cues><cue name="X"><conditions><event_cue_signalled/></conditions></cue></cues></mdscript>',
+    });
+    // Other's actions, as in targetScript; laid out and spaced differently, which doesn't matter
+    const copied = `<actions><set_value name="$a" exact="2"/>
+        <do_if value="event.param.typename=='Drone'"/></actions>`;
+    const ext = tree({
+        'extensions/target/md/fake.xml': `<diff>
+  <!-- an ordinary comment is not a marker -->
+  <add sel="//cue[@name='Init']">${copied}</add>
+  <!-- hh-copy: re-states Head Hunter's actions -->
+  <add sel="//cue[@name='Init']">${copied}</add>
+  <add sel="//cue[@name='Init']">${copied.replace('exact="2"', 'exact="3"')}</add>
+  <replace sel="//cue[@name='Init']"><cue name="New"><conditions><event_cue_signalled/></conditions><do_if value="true">${copied}</do_if><set_value name="$a" exact="1"/></cue></replace>
+  <!-- hh-copy: -->
+  <add sel="//cue[@name='Init']/actions">
+    <set_value name="$a" exact="1"/>
+  </add>
+</diff>
+`,
+        'libraries/equipmentmods.xml': `<diff><add sel="/x"><set_value name="$a" exact="2"/></add></diff>`,
+    });
+    const why = 'is a copy of one in Head Hunter: write it here, or give the reason in an <!-- hh-copy: reason --> comment directly above the op';
+    assert.deepEqual(checkCopies(ext, target), {
+        notes: [`extensions/target/md/fake.xml: <add sel="//cue[@name='Init']">: copies <actions> from Head Hunter (hh-copy: re-states Head Hunter's actions)`],
+        bad: [
+            `extensions/target/md/fake.xml: <add sel="//cue[@name='Init']">: <actions> ${why}`,
+            `extensions/target/md/fake.xml: <replace sel="//cue[@name='Init']">: <actions> ${why}`,
+            `extensions/target/md/fake.xml: <add sel="//cue[@name='Init']/actions">: <set_value> ${why}`,
+            `libraries/equipmentmods.xml: <add sel="/x">: <set_value> ${why}`,
+        ],
+    });
 });

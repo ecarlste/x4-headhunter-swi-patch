@@ -25,4 +25,7 @@ test("the patch and the helper are well-formed and every sel matches one node in
     const radar = `//radarrange\\[@ware='mod_ship_radarrange_01_mk1_headhunter'\\]`;
     assert.match(r.stdout, new RegExp(`^ok {2}patch/hh_swi_patch: libraries/equipmentmods\\.xml: .* matches 1 node in Head Hunter before SWI; after it, ${radar} matches 1 node$`, 'm'));
     assert.match(r.stdout, new RegExp(`^ok {2}patch/hh_swi_patch: libraries/equipmentmods\\.xml: .*: skipped in SWI before Head Hunter \\(its if is false\\); ${radar} matches 1 node$`, 'm'));
+    // the two intentional copies of Head Hunter's code (#33), each with its hh-copy reason
+    assert.match(r.stdout, /^ok {2}patch\/hh_swi_patch: libraries\/equipmentmods\.xml: .*: copies <radarrange> from Head Hunter \(hh-copy: .+\)$/m);
+    assert.match(r.stdout, /^ok {2}patch\/hh_swi_patch: extensions\/chillheadhunter\/md\/headhuntermd\.xml: <add sel="\/\/cue\[@name='Speaky'\]\/actions">: copies <start_script> from Head Hunter \(hh-copy: .+\)$/m);
 });

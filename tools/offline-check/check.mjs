@@ -107,7 +107,10 @@ function opLabel(rel, op) {
 // folder's installed copy, targets[folder], and each op's sel matches exactly one node there
 // (X4 silently skips an op whose sel matches nothing). X4 patches another extension by its folder
 // name, not its id. The installed files are read at run time, never copied into the repo.
-export function checkDiffs(extDir, targets) {
+// earlier lists the extensions that load before this one and diff the same folder (the check
+// helper loads after the patch): their diffs of each file are applied first, in order, and this
+// extension's sels are counted on the result, as the game loads them.
+export function checkDiffs(extDir, targets, earlier = []) {
     const notes = [];
     const bad = [];
     const docs = new Map();
@@ -142,7 +145,7 @@ export function checkDiffs(extDir, targets) {
         }
         if (!docs.has(targetFile)) {
             try {
-                docs.set(targetFile, parseXml(fs.readFileSync(targetFile, 'utf8')));
+                docs.set(targetFile, patchedDoc(targetFile, earlier.map((e) => path.join(e, rel))));
             } catch (e) {
                 docs.set(targetFile, e.message);
             }
@@ -152,12 +155,14 @@ export function checkDiffs(extDir, targets) {
             bad.push(`${rel}: ${label} doesn't parse: ${doc}`);
             continue;
         }
+        const by = earlier.filter((e) => fs.existsSync(path.join(e, rel))).map((e) => path.basename(e));
+        const where = by.length ? `${label} patched by ${by.join(', ')}` : label;
         for (const op of elementChildren(diff)) {
             const sel = op.getAttribute('sel') ?? '';
             const cond = op.getAttribute('if');
             const head = opLabel(rel, op);
             if (cond !== null) {
-                const problem = ifProblem(cond, doc, label);
+                const problem = ifProblem(cond, doc, where);
                 if (problem) {
                     bad.push(`${head}: ${problem}`);
                     continue;
@@ -165,10 +170,27 @@ export function checkDiffs(extDir, targets) {
             }
             const count = countPath(sel, doc);
             if (typeof count === 'string') bad.push(`${head}: ${count}`);
-            else (count === 1 ? notes : bad).push(`${head} matches ${plural(count)} in ${label}`);
+            else (count === 1 ? notes : bad).push(`${head} matches ${plural(count)} in ${where}`);
         }
     }
     return { notes, bad };
+}
+
+// The installed file at targetFile with each diff in diffFiles applied in turn (a missing one,
+// or one that doesn't parse, is passed over: its own extension's check reports it)
+function patchedDoc(targetFile, diffFiles) {
+    const doc = parseXml(fs.readFileSync(targetFile, 'utf8'));
+    for (const f of diffFiles) {
+        if (!fs.existsSync(f)) continue;
+        let diff;
+        try {
+            diff = parseXml(fs.readFileSync(f, 'utf8')).documentElement;
+        } catch {
+            continue;
+        }
+        if (diff.tagName === 'diff') applyDiff(doc, diff);
+    }
+    return doc;
 }
 
 // Whether an op's if holds on doc, as X4 reads it: an XPath that is true, or selects something
@@ -349,6 +371,79 @@ export function checkOwnMd(extDir, knownElements) {
         const unknown = new Set([root, ...all].map((el) => el.tagName).filter((t) => !knownElements.has(t)));
         for (const t of unknown) bad.push(`${rel}: <${t}> is not an element in X4's md.xsd or common.xsd`);
         if (bad.length === before) notes.push(`${rel}: mdscript ${name}, ${plural(counts.size).replace('node', 'cue')}`);
+    }
+    return { notes, bad };
+}
+
+// An element as a comparable string: its tag, its attributes (in name order) and its children,
+// elements and non-blank text in order; comments, layout and spacing inside values
+// ([2013, 2111] is [2013,2111]) don't count
+const unspaced = (s) => s.replace(/\s+/g, '');
+function subtreeKey(el) {
+    const attrs = Array.from(el.attributes).map((a) => `${a.name}=${JSON.stringify(unspaced(a.value))}`).sort();
+    const children = Array.from(el.childNodes).flatMap((n) => {
+        if (n.nodeType === 1) return [subtreeKey(n)];
+        if ((n.nodeType === 3 || n.nodeType === 4) && n.data.trim()) return [JSON.stringify(unspaced(n.data))];
+        return [];
+    });
+    return `<${el.tagName} ${attrs.join(' ')}>${children.join('')}</>`;
+}
+
+// Whether an element or anything in it holds a value (an attribute or text): one that holds none,
+// like <conditions><event_cue_signalled/></conditions>, is bare structure, not Head Hunter's code
+const holdsValue = (el) => el.attributes.length > 0 || Array.from(el.childNodes).some((n) => (n.nodeType === 1 ? holdsValue(n) : (n.nodeType === 3 || n.nodeType === 4) && n.data.trim()));
+
+// The reason in an <!-- hh-copy: reason --> comment directly above op, or null if there's none
+function copyMarker(op) {
+    let prev = op.previousSibling;
+    while (prev && prev.nodeType === 3 && !prev.data.trim()) prev = prev.previousSibling;
+    if (prev?.nodeType !== 8) return null;
+    return /^\s*hh-copy:\s*(\S.*?)\s*$/s.exec(prev.data)?.[1] ?? null;
+}
+
+// Check 5: the standing rule, no Head Hunter code in the repo. An element an add or replace op
+// writes (or any element inside one that has element children of its own: a copied one-line
+// param inside new code is fine, a copied block isn't) and holds a value must not equal, whole
+// subtree, an element
+// anywhere in the installed Head Hunter at hhDir (read at run time, never copied into the repo).
+// An intentional copy needs an <!-- hh-copy: reason --> comment directly above its op.
+export function checkCopies(extDir, hhDir) {
+    const notes = [];
+    const bad = [];
+    const known = new Set();
+    if (!fs.existsSync(hhDir)) return { notes, bad }; // checkDiffs reports the missing install
+    for (const rel of xmlFiles(hhDir)) {
+        let root;
+        try {
+            root = parseXml(fs.readFileSync(path.join(hhDir, rel), 'utf8')).documentElement;
+        } catch {
+            continue;
+        }
+        for (const el of [root, ...Array.from(root.getElementsByTagName('*'))]) known.add(subtreeKey(el));
+    }
+    for (const rel of xmlFiles(extDir)) {
+        let diff;
+        try {
+            diff = parseXml(fs.readFileSync(path.join(extDir, rel), 'utf8')).documentElement;
+        } catch {
+            continue; // the well-formed check fails it
+        }
+        if (diff.tagName !== 'diff') continue;
+        for (const op of elementChildren(diff).filter((el) => ['add', 'replace'].includes(el.tagName))) {
+            const copies = [];
+            const visit = (el, top) => {
+                if ((top || elementChildren(el).length) && holdsValue(el) && known.has(subtreeKey(el))) copies.push(el);
+                else elementChildren(el).forEach((child) => visit(child, false));
+            };
+            elementChildren(op).forEach((el) => visit(el, true));
+            if (!copies.length) continue;
+            const reason = copyMarker(op);
+            const head = opLabel(rel, op);
+            for (const el of copies) {
+                if (reason) notes.push(`${head}: copies <${el.tagName}> from Head Hunter (hh-copy: ${reason})`);
+                else bad.push(`${head}: <${el.tagName}> is a copy of one in Head Hunter: write it here, or give the reason in an <!-- hh-copy: reason --> comment directly above the op`);
+            }
+        }
     }
     return { notes, bad };
 }
