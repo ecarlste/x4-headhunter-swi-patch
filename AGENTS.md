@@ -1,3 +1,5 @@
+Building or changing the patch or the check helper: read `docs/agents/building.md` first.
+
 ## Agent skills
 
 ### Issue tracker
