@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // The offline check of the patch and the check helper: every XML file is well-formed, every diff
 // under extensions/chillheadhunter/ matches exactly one node in the installed Head Hunter (read
-// from HH_PATH at run time, never copied into the repo), every base-game diff (libraries/) holds
+// from HH_PATH at run time, never copied into the repo; for the check helper, patched by the
+// patch first, see loadsBefore), every base-game diff (libraries/) holds
 // on vanilla (X4_PATH) patched by Head Hunter and SWI (SWI_PATH) in either order (see
 // baseOrders), the extension's own MD scripts use only
 // elements X4's schema knows (X4_XSD_PATH), no op writes a copy of Head Hunter's code without an
@@ -33,6 +34,17 @@ function ownMd(ext) {
     return checkOwnMd(ext, known);
 }
 
+// The extensions that load before ext and diff Head Hunter too: those of this repo's it requires
+// (by folder, see REQUIRES), taken from the folders given or else the repo's own. The check
+// helper's sels are counted on Head Hunter with the patch applied, as the game loads them.
+function loadsBefore(ext) {
+    const requires = REQUIRES[path.basename(ext)] ?? [];
+    return requires.flatMap((id) => {
+        const found = [...extensions, ...DEFAULT_EXTENSIONS].find((e) => path.basename(e) === id);
+        return found ? [found] : [];
+    });
+}
+
 let bad = 0;
 for (const ext of extensions) {
     const name = path.relative(process.cwd(), ext) || ext;
@@ -41,7 +53,7 @@ for (const ext of extensions) {
         continue;
     }
     const requires = REQUIRES[path.basename(ext)];
-    const results = [checkWellFormed(ext), checkDiffs(ext, { chillheadhunter: hhPath }), checkBaseDiffs(ext, orders), ownMd(ext), checkCopies(ext, hhPath)];
+    const results = [checkWellFormed(ext), checkDiffs(ext, { chillheadhunter: hhPath }, loadsBefore(ext)), checkBaseDiffs(ext, orders), ownMd(ext), checkCopies(ext, hhPath)];
     if (requires) results.push(checkContent(ext, requires));
     for (const result of results) {
         for (const line of result.notes) console.log(`ok  ${name}: ${line}`);

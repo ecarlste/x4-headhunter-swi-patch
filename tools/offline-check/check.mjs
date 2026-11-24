@@ -107,7 +107,10 @@ function opLabel(rel, op) {
 // folder's installed copy, targets[folder], and each op's sel matches exactly one node there
 // (X4 silently skips an op whose sel matches nothing). X4 patches another extension by its folder
 // name, not its id. The installed files are read at run time, never copied into the repo.
-export function checkDiffs(extDir, targets) {
+// earlier lists the extensions that load before this one and diff the same folder (the check
+// helper loads after the patch): their diffs of each file are applied first, in order, and this
+// extension's sels are counted on the result, as the game loads them.
+export function checkDiffs(extDir, targets, earlier = []) {
     const notes = [];
     const bad = [];
     const docs = new Map();
@@ -142,7 +145,7 @@ export function checkDiffs(extDir, targets) {
         }
         if (!docs.has(targetFile)) {
             try {
-                docs.set(targetFile, parseXml(fs.readFileSync(targetFile, 'utf8')));
+                docs.set(targetFile, patchedDoc(targetFile, earlier.map((e) => path.join(e, rel))));
             } catch (e) {
                 docs.set(targetFile, e.message);
             }
@@ -152,12 +155,14 @@ export function checkDiffs(extDir, targets) {
             bad.push(`${rel}: ${label} doesn't parse: ${doc}`);
             continue;
         }
+        const by = earlier.filter((e) => fs.existsSync(path.join(e, rel))).map((e) => path.basename(e));
+        const where = by.length ? `${label} patched by ${by.join(', ')}` : label;
         for (const op of elementChildren(diff)) {
             const sel = op.getAttribute('sel') ?? '';
             const cond = op.getAttribute('if');
             const head = opLabel(rel, op);
             if (cond !== null) {
-                const problem = ifProblem(cond, doc, label);
+                const problem = ifProblem(cond, doc, where);
                 if (problem) {
                     bad.push(`${head}: ${problem}`);
                     continue;
@@ -165,10 +170,27 @@ export function checkDiffs(extDir, targets) {
             }
             const count = countPath(sel, doc);
             if (typeof count === 'string') bad.push(`${head}: ${count}`);
-            else (count === 1 ? notes : bad).push(`${head} matches ${plural(count)} in ${label}`);
+            else (count === 1 ? notes : bad).push(`${head} matches ${plural(count)} in ${where}`);
         }
     }
     return { notes, bad };
+}
+
+// The installed file at targetFile with each diff in diffFiles applied in turn (a missing one,
+// or one that doesn't parse, is passed over: its own extension's check reports it)
+function patchedDoc(targetFile, diffFiles) {
+    const doc = parseXml(fs.readFileSync(targetFile, 'utf8'));
+    for (const f of diffFiles) {
+        if (!fs.existsSync(f)) continue;
+        let diff;
+        try {
+            diff = parseXml(fs.readFileSync(f, 'utf8')).documentElement;
+        } catch {
+            continue;
+        }
+        if (diff.tagName === 'diff') applyDiff(doc, diff);
+    }
+    return doc;
 }
 
 // Whether an op's if holds on doc, as X4 reads it: an XPath that is true, or selects something

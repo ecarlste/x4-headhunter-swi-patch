@@ -77,6 +77,41 @@ test("each diff sel under extensions/<folder>/ must match exactly one node in th
     ]);
 });
 
+test("the check helper's sels are counted on Head Hunter with the patch applied, and the patch's on unpatched Head Hunter", () => {
+    const target = tree({ 'md/fake.xml': targetScript });
+    const patch = tree({
+        'extensions/target/md/fake.xml': `<diff>
+  <add sel="//cue[@name='Init']/actions"><do_if value="true" comment="patch"/></add>
+  <remove sel="//cue[@name='Other']/actions/do_if"/>
+</diff>
+`,
+    });
+    const helper = tree({
+        'extensions/target/md/fake.xml': `<diff>
+  <add sel="//cue[@name='Init']/actions/do_if[@comment='patch']" pos="after"/>
+</diff>
+`,
+    });
+    const own = checkDiffs(patch, { target });
+    assert.deepEqual(own.bad, []);
+    const patched = checkDiffs(helper, { target }, [patch]);
+    assert.deepEqual(patched.bad, []);
+    assert.deepEqual(patched.notes, [
+        `extensions/target/md/fake.xml: <add sel="//cue[@name='Init']/actions/do_if[@comment='patch']"> matches 1 node in target/md/fake.xml patched by ${path.basename(patch)}`,
+    ]);
+    assert.equal(checkDiffs(helper, { target }).bad.length, 1, 'unpatched, the helper op has nothing to target');
+});
+
+test('a patch op that removes a node the check helper targets makes the helper check bad', () => {
+    const target = tree({ 'md/fake.xml': targetScript });
+    const patch = tree({ 'extensions/target/md/fake.xml': `<diff><remove sel="//cue[@name='Other']/actions/do_if"/></diff>` });
+    const helper = tree({ 'extensions/target/md/fake.xml': `<diff><add sel="//cue[@name='Other']/actions/do_if" pos="before"/></diff>` });
+    assert.deepEqual(checkDiffs(helper, { target }).bad, []);
+    assert.deepEqual(checkDiffs(helper, { target }, [patch]).bad, [
+        `extensions/target/md/fake.xml: <add sel="//cue[@name='Other']/actions/do_if"> matches 0 nodes in target/md/fake.xml patched by ${path.basename(patch)}`,
+    ]);
+});
+
 test('a file under extensions/ must be a diff of a file that exists in a known, installed folder', () => {
     const target = tree({ 'md/fake.xml': targetScript });
     const op = `<diff><add sel="//cue[@name='Init']"/></diff>`;
