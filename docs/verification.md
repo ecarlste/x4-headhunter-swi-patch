@@ -189,6 +189,19 @@ From #23: the features the patch doesn't touch, one action and one expected resu
 2. Fails on vanilla too: an **upstream bug**. Write `fail (upstream: <one line>)` in the run cell, note it in the run's Notes, and leave it.
 3. Fails only on SWI, or only with the patch: open a new issue (`needs-triage`) with the row number, the run letter and the log lines, and link it in the run cell: `fail (#n)`.
 
+### Payout voice
+
+From #29 (bug fix 7 and the no-representative guard, #17). Row 15 is focused: the patch makes `Speaky` fire once per payout and skips the thanks when the victim's faction has no representative. "The computer line" is `player.computer`'s "Incoming fund transfer from" (line 279) followed by the faction name; "thanks" is the representative's "Good doing business." / "Thanks for your help." / "Here's a little something as thanks.". Claims speak only with "Verbal Payout Notifications" on in "HeadHunter Settings" (its default). The helper's "Make the targeted ship wanted" sets the last victim faction to `galempire` (Galactic Empire, which has a representative), so it suits 15a, not 15b.
+
+| # | Tier | Action | Expected result | Log line | A |
+|---|---|---|---|---|---|
+| 15a | F | In one session, claim two wanted bounties (kill the wanted ship with the player's ship) whose last victims were from factions with a representative (e.g. two ships made wanted with the helper button, last victim `galempire`). Let the first payout's voice finish before the second claim | First claim: the computer line, then one thanks. Second claim: the computer line **once** and **exactly one** thanks (before the fix, the second claim brought two). A faction name that is silent after line 279 is recorded in the run's Notes, not failed (SWI ships no voice files for its faction names) | none; and no new `Error in MD cue` naming `HeadHunter*` or `hh_swi_patch` | |
+| 15b | F | Claim a wanted bounty whose last victim was a trader faction (`twinsuns`, `baobab`, `tradefederation`, `tagge`, `bankingclan`) or `indibhg` (a ship that killed one of their ships; check "Wanted By" on the board) | The computer line plays, no thanks follows, and no new Head Hunter or patch MD error appears | none; and no new `Error in MD cue` naming `HeadHunter*` or `hh_swi_patch` (in particular none from `Speaky` or `start_script`) | |
+
+```
+grep -niE 'Speaky|PayoutEffect' "$LOG" | grep -i error
+```
+
 ## Update procedure
 
 When Head Hunter or SWI updates:
