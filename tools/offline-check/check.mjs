@@ -395,10 +395,10 @@ function copyMarker(op) {
 
 // Check 5: the standing rule, no Head Hunter code in the repo. An element an add or replace op
 // writes (or any element inside one that has element children of its own: a copied one-line
-// param inside new code is fine, a copied block isn't) and holds a value must not equal, whole
-// subtree, an element
-// anywhere in the installed Head Hunter at hhDir (read at run time, never copied into the repo).
-// An intentional copy needs an <!-- hh-copy: reason --> comment directly above its op.
+// param inside new code is fine, a copied block isn't) and holds a value must not equal, as a
+// whole subtree, an element anywhere in the installed Head Hunter at hhDir (read at run time,
+// never copied into the repo). An intentional copy needs an <!-- hh-copy: reason --> comment
+// directly above its op.
 export function checkCopies(extDir, hhDir) {
     const notes = [];
     const bad = [];
