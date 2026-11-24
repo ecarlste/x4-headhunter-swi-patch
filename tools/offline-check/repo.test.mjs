@@ -20,4 +20,9 @@ test("the patch and the helper are well-formed and every sel matches one node in
     assert.match(r.stdout, /^ok {2}patch\/hh_swi_patch: \d+ XML files read$/m);
     assert.match(r.stdout, /^ok {2}checks\/hh_swi_checks: content\.xml: id hh_swi_checks, off by default, requires hh_swi_patch/m);
     assert.match(r.stdout, /^ok {2}checks\/hh_swi_checks: md\/hh_swi_checks\.xml: mdscript HH_SWI_Checks, /m);
+    // the radar mod's guarded re-add (#25): it runs when SWI's replace wiped Head Hunter's entry,
+    // and is skipped when Head Hunter's survived; either way the entry exists once
+    const radar = `//radarrange\\[@ware='mod_ship_radarrange_01_mk1_headhunter'\\]`;
+    assert.match(r.stdout, new RegExp(`^ok {2}patch/hh_swi_patch: libraries/equipmentmods\\.xml: .* matches 1 node in Head Hunter before SWI; after it, ${radar} matches 1 node$`, 'm'));
+    assert.match(r.stdout, new RegExp(`^ok {2}patch/hh_swi_patch: libraries/equipmentmods\\.xml: .*: skipped in SWI before Head Hunter \\(its if is false\\); ${radar} matches 1 node$`, 'm'));
 });

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The patch's diff of the base game's libraries/equipmentmods.xml. Grouped by ticket so parallel
+     edits merge cleanly. -->
+<diff>
+  <!-- Radar mod (#25, spec "Radar mod", #5): SWI's <replace sel="/equipmentmods"> wipes Head
+       Hunter's radar mod entry when Head Hunter loads first, and the order between the two isn't
+       fixed. The patch loads after both, so this re-adds the entry only when it is missing: it
+       exists exactly once in either order. The one line re-creates Head Hunter's data entry with
+       its values (quality 2, 1.45x): the standing rule's one data-entry exception. -->
+  <add sel="/equipmentmods/ship" if="not(//radarrange[@ware='mod_ship_radarrange_01_mk1_headhunter'])">
+    <radarrange ware="mod_ship_radarrange_01_mk1_headhunter" quality="2" min="1.45" max="1.45"/>
+  </add>
+</diff>
