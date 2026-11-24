@@ -5,4 +5,32 @@
   <add sel="//cue[@name='Init']/actions">
     <debug_text text="'[hh-swi-patch] canary: the patch reached chillheadhunter/md/headhunterhunted.xml'"/>
   </add>
+
+  <!-- Hunter roster (#24): the 13 SWI factions with military S, M and L ships and an HQ (#8) -->
+  <replace sel="//cue[@name='SpawnHunters']/actions/set_value[@name='$HunterFactions']/@exact">[faction.galempire, faction.ascendancy, faction.newrepublic, faction.rebelalliance, faction.corporate, faction.commerceguild, faction.huttcartel, faction.mandodw, faction.anoat, faction.hapes, faction.kamino, faction.valarian, faction.blacksun]</replace>
+  <!-- ...no Boron story gate and no DLC appends: SWI leaves boron, loanshark, split, terran and
+       pioneers inactive with no ships. The OTAS do_if stays (md.Setup_otas_Mod? is false under SWI) -->
+  <remove sel="//cue[@name='SpawnHunters']/actions/do_if[@value='md.Setup_DLC_Boron? and md.Setup_DLC_Boron.Boron_Gates_Open_KingdomEnd.state == cuestate.complete']"/>
+  <remove sel="//cue[@name='SpawnHunters']/actions/do_if[@value='md.Setup_DLC_Pirate?']"/>
+  <remove sel="//cue[@name='SpawnHunters']/actions/do_if[@value='md.Setup_DLC_Split?']"/>
+  <remove sel="//cue[@name='SpawnHunters']/actions/do_if[@value='md.Setup_DLC_Terran?']"/>
+  <!-- ...and the pick skips a faction that is defeated (inactive) or has no HQ right now (#8, #9).
+       A wrecked HQ, or one in a sector its faction lost, still counts. With none left, this
+       SpawnHunters instance is cancelled (after its actions, so its CreateHunters cues never
+       start): no group this time, and HunterTimer tries again as usual. $HunterFactions is kept
+       whole then, so the pick below still has a list to pick from. -->
+  <add sel="//cue[@name='SpawnHunters']/actions/set_value[@name='$SendingFaction']" pos="before">
+    <set_value name="$hhswi_eligible" exact="[]"/>
+    <do_for_each name="$hhswi_faction" in="$HunterFactions">
+      <do_if value="$hhswi_faction.isactive and @$hhswi_faction.headquarters.exists">
+        <append_to_list name="$hhswi_eligible" exact="$hhswi_faction"/>
+      </do_if>
+    </do_for_each>
+    <do_if value="$hhswi_eligible.count gt 0">
+      <set_value name="$HunterFactions" exact="$hhswi_eligible"/>
+    </do_if>
+    <do_else>
+      <cancel_cue cue="this"/>
+    </do_else>
+  </add>
 </diff>
