@@ -7,6 +7,7 @@ Read when reviewing a change to `patch/` or `checks/`. These need judgement. `np
 The repo holds XPath selectors and content written here, never Chillmatica's code (Head Hunter's terms don't allow uploading its files anywhere). The offline check catches exact copies. A reviewer catches the rest:
 
 - **Near-copies.** A Head Hunter cue copied, lightly edited and put back with `<replace>` is still Head Hunter's code. When a change really needs a whole cue swapped, the new cue is written from scratch and the commit says so.
+- **The one exception.** The radar mod's `<radarrange>` line in the patch's `libraries/equipmentmods.xml` re-creates Head Hunter's data entry with its values, because SWI's replace can wipe it (spec #18, "Standing rule"). No other copy is allowed for that reason.
 - **Marker reasons.** An `hh-copy` reason names why no smaller op can do the job, e.g. "a diff can't wrap an existing node". "Simpler this way" isn't a reason.
 
 ## Small ops on exact selectors
