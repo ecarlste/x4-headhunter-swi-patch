@@ -1,0 +1,10 @@
+[General] 0.00 Logfile started, time Mon Nov 23 10:00:00 2026
+[FileIO ] 0.00 File I/O: Failed to verify the file signature for file '.\extensions\chillheadhunter\md\headhuntermd.xml' (error: 14)
+[Scripts] 0.12 *** Context:md.HeadHunterMD.PapaCue: HeadHunter PapaCue Activated
+[General] 0.50 ======================================
+[=ERROR=] 0.50 Error in MD cue md.kuertee_ssac.ThirdPartyModEvents_onkCHCEvent: Evaluated value 'null' is not of type cue
+* Expression: @md.kuertee_chc.CrimeConfirm
+[General] 0.50 ======================================
+[Scripts] 61.20 *** Context:md.HH_SWI_Checks.MakeWanted: [hh-swi-check] make wanted: [0x1a2b] Imperial Patrol (galempire) is now wanted, value 100,000 Cr, last victim faction galempire
+[Scripts] 64.02 *** Context:md.HH_SWI_Checks.PrintTable: [hh-swi-check] wanted table: 1 entries; printed below
+[Scripts] 64.02 *** Context:md.HH_SWI_Checks.PrintTable: [hh-swi-check] wanted: [0x1a2b] Imperial Patrol (galempire) value 100,000 Cr, last seen 64.0, last victim faction galempire, on the board true, exists true

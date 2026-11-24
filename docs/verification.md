@@ -60,7 +60,7 @@ It can't tell whether an op does what it should. Only the rows below can.
 - **Switch it on** for a check run: `tools/play/play.sh --checks`. That writes `hh_swi_checks` as on in `90000401`'s `content.xml` (and refuses if it isn't installed).
 - **Switch it off** for play: `tools/play/play.sh` with no flag writes it as off. The script rewrites the profile's `content.xml` at every launch, so the last launch's flag decides; there's nothing to undo by hand. No other profile has an entry for it, and its default is off, so it loads nowhere else.
 - **Its menu:** Options > Extension Options > **HH SWI checks**. Each line is one button ("Run"). Buttons that act on "the targeted ship" use your current target (`player.target`).
-- **Its log lines** start with `[hh-swi-check]`. Read them with `grep -n '\[hh-swi-check\]' "$LOG"`.
+- **Its log lines** start with `[hh-swi-check]`. The log reader (`npm run log`, see [Failure rule](#failure-rule)) prints them in order; `grep -n '\[hh-swi-check\]' "$LOG"` works too.
 
 | Button | What it does | Log line |
 |---|---|---|
@@ -113,13 +113,18 @@ One column per run in the check tables, keyed by the run's letter.
 
 A check fails if its expected result doesn't happen, **or** if a new `Error in MD cue` line in `debuglog.txt` mentions `HeadHunter*`, `chillheadhunter`, the patch (`hh_swi_patch`) or the helper (`hh_swi_checks`) and isn't on the known-harmless list below. Patch errors count the same way: a parse error or a "sel matches nothing" style patch error naming one of those files fails the run.
 
+**Run the log reader** after every play or check session, before reading the rows' own log lines:
+
+```
+npm run log                       # profile 90000401's debuglog.txt (X4_PROFILE_ROOT overrides the profiles folder)
+npm run log -- path/to/debuglog.txt
+```
+
+It applies this rule to the log alone and only reads it (it never writes to the profile folder). It prints every `[hh-swi-check]` line in order with its line number; every `[=ERROR=]` or `Error in MD cue` line naming `HeadHunter`, `chillheadhunter`, `hh_swi_patch` or `hh_swi_checks` (`HH_SWI_Checks`), as `harmless` with its note when it's on the known-harmless list, or as `FAIL` with its `* Expression:` lines; then `N failing`. It exits 1 while any `FAIL` remains (the run fails), and 2 when the log isn't there. The `Failed to verify the file signature … (error: 14)` lines are FileIO notes every loose-file extension gets, not errors, and don't count.
+
 ### Known-harmless list
 
-A line joins this list only with a note saying why it's harmless.
-
-| Log line | Where | Why it's harmless |
-|---|---|---|
-| `Error in MD cue md.HeadHunterMD.SCapturedHandler: Evaluated value 'null' is not a string` (and the same from the full-capture handler) | `add_holomap_text` with `text="null"` in `SCapturedHandler` (`md/headhuntermd.xml:420`) and the full-capture handler (`:406`) | Head Hunter clears the ship's map label with a null text; the cue carries on. Seen on an unpatched run, 2026-11-23 (#13). |
+The list is [`tools/log-reader/known-harmless.json`](../tools/log-reader/known-harmless.json), its only copy, and the reader uses it. Each entry has `match` (a regular expression tested against the error line), `line`, `where` and `why`. A line joins the list only with a `why` saying why it's harmless.
 
 ## Checks
 
@@ -136,7 +141,7 @@ To read C1 and C2 from WSL:
 LOG=/mnt/c/Users/ecarl/OneDrive/Documents/Egosoft/X4/90000401/debuglog.txt
 grep -n '\[hh-swi-patch\] canary' "$LOG"
 grep -n 'HeadHunter PapaCue Activated' "$LOG"
-grep -niE 'chillheadhunter|headhunter|hh_swi_patch|hh_swi_checks' "$LOG" | grep -i error
+npm run log                       # the failure rule: 0 failing
 ```
 
 **Removing the canary, once C1 has passed** (by the user): delete the canary `<add>` and its comment from `patch/hh_swi_patch/extensions/chillheadhunter/md/headhunterhunted.xml`. If no other op is left in that file, delete the file. Run `npm run check`, commit (saying C1 passed and the canary is gone), then reinstall the patch by replacing the whole `extensions\hh_swi_patch\` folder so the removed op doesn't linger. From then on the helper's `[hh-swi-check]` lines prove the same thing. C1 stays in this table with its pass; it isn't rerun in later full passes, but C2 is.
@@ -147,15 +152,14 @@ From the check helper (#22). They need a real launch by the user.
 
 | # | Tier | Action | Expected result | Log line | A |
 |---|---|---|---|---|---|
-| H1 | F | **Helper loads.** Install the helper, launch with `tools/play/play.sh --checks`, start a new SWI game (or load a `90000401` save) | No `Error` lines naming `hh_swi_checks` or `HH_SWI_Checks` (MD or patch errors), other than the known-harmless list | none (grep for errors, below) | |
+| H1 | F | **Helper loads.** Install the helper, launch with `tools/play/play.sh --checks`, start a new SWI game (or load a `90000401` save) | No `Error` lines naming `hh_swi_checks` or `HH_SWI_Checks` (MD or patch errors), other than the known-harmless list | none (the log reader, below) | |
 | H2 | F | **Helper stays off.** Quit, launch with `tools/play/play.sh` (no flag), load the same game | The "HH SWI checks" menu is gone from Extension Options, and the new `debuglog.txt` doesn't mention `hh_swi_checks` or `HH_SWI_Checks` | none | |
 | H3 | F | **Menu.** With the helper on: Options > Extension Options | An "HH SWI checks" entry opens a menu with "Make the targeted ship wanted", "Print the wanted table" and "Force-bail the targeted ship" (#28) | none | |
 | H4 | F | **Make wanted.** Target an NPC ship that isn't wanted, press "Make the targeted ship wanted", then open Head Hunter's wanted board (Extension Options, and its map tab) | The ship is on the board at 100,000 Cr. Pressing it again logs "already wanted" and changes nothing. With no target it logs "no ship targeted". | `[hh-swi-check] make wanted: … is now wanted, value 100,000 Cr` | |
 | H5 | F | **Print.** After H4, press "Print the wanted table" | A count line, then one line per wanted ship, including H4's ship at 100,000 Cr, on the board true | `[hh-swi-check] wanted table: …`, `[hh-swi-check] wanted: …` | |
 
 ```
-grep -n '\[hh-swi-check\]' "$LOG"
-grep -niE 'hh_swi_checks|HH_SWI_Checks' "$LOG" | grep -i error
+npm run log                       # the [hh-swi-check] lines, then the failure rule: 0 failing
 ```
 
 ### Play setup checks

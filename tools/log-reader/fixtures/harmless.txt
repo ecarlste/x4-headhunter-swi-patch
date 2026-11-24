@@ -1,0 +1,13 @@
+[General] 0.00 Logfile started, time Mon Nov 23 10:00:00 2026
+[Scripts] 0.12 *** Context:md.HeadHunterMD.PapaCue: HeadHunter PapaCue Activated
+[Scripts] 120.00 *** Context:md.HH_SWI_Checks.ForceBail: [hh-swi-check] force-bail: [0x3e4f] Smuggler (huttpirates), wanted true, value 100,000 Cr, last player hit at 110.0 (now 120.0)
+[General] 120.40 ======================================
+[=ERROR=] 120.40 Error in MD cue md.HeadHunterMD.SCapturedHandler<inst:1c038d>: Evaluated value 'null' is not a string
+* Expression: null
+* Action: <add_holomap_text>, line 420
+[General] 120.40 ======================================
+[Scripts] 120.40 *** Context:md.HH_SWI_Checks.Capture: [hh-swi-check] capture: [0x3e4f] Smuggler bailed, board 100,000 Cr, reward 100,000 Cr, last player hit at 110.0 (now 120.0), paid true
+[General] 300.00 ======================================
+[=ERROR=] 300.00 Error in MD cue md.HeadHunterMD.LCapturedHandler: Evaluated value 'null' is not a string
+* Expression: null
+[General] 300.00 ======================================

@@ -1,0 +1,8 @@
+[
+    {
+        "match": "Error in MD cue md\\.HeadHunterMD\\.[SL]CapturedHandler(<inst:[0-9a-f]+>)?: Evaluated value 'null' is not a string$",
+        "line": "Error in MD cue md.HeadHunterMD.SCapturedHandler: Evaluated value 'null' is not a string, the cue name often with an instance suffix such as SCapturedHandler<inst:1c038d> (and the same from the full-capture handler, LCapturedHandler)",
+        "where": "add_holomap_text with text=\"null\" in SCapturedHandler (md/headhuntermd.xml:420) and LCapturedHandler, the full-capture handler (:406)",
+        "why": "Head Hunter clears the ship's map label with a null text; the cue carries on. Seen on an unpatched run, 2026-11-23 (#13)."
+    }
+]

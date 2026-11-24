@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test tools/",
-    "check": "node tools/offline-check/cli.mjs"
+    "check": "node tools/offline-check/cli.mjs",
+    "log": "node tools/log-reader/cli.mjs"
   },
   "devDependencies": {
     "@xmldom/xmldom": "^0.9.12",

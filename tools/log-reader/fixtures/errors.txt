@@ -1,0 +1,15 @@
+[General] 0.00 Logfile started, time Mon Nov 23 10:00:00 2026
+[=ERROR=] 0.00 No matching node for path '//cue[@name='HunterTimer']/actions' in patch file 'extensions\hh_swi_patch\extensions\chillheadhunter\md\headhunterhunted.xml'. Skipping node.
+[Scripts] 0.12 *** Context:md.HeadHunterMD.PapaCue: HeadHunter PapaCue Activated
+[General] 90.10 ======================================
+[=ERROR=] 90.10 Error in MD cue md.HeadHunterHunted.HuntersCreated: Evaluated value 'null' is not of type component
+* Expression: $Leader
+* Action: <create_order>, line 212
+[General] 90.10 ======================================
+[Scripts] 95.00 *** Context:md.HH_SWI_Checks.SendHunters: [hh-swi-check] send hunters: at [0x2c3d] Player Ship (player), board value 100,000 Cr
+[General] 99.00 ======================================
+[=ERROR=] 99.00 Error in MD cue md.HH_SWI_Checks.ForceBail: Property lookup failed: $Target.pilot
+* Expression: $Target.pilot.name
+[General] 99.00 ======================================
+[=ERROR=] 130.00 Error in MD cue md.HeadHunterMD.SCapturedHandler: Property lookup failed: $Killer.owner
+* Expression: $Killer.owner
