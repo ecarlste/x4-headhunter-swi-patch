@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The check helper's ops on Head Hunter's aiscripts/headhunter.assassinate.xml -->
+<diff>
+  <!-- Timing overrides (#24): the hunters' search give-up, 3 min with fast timings on, Head
+       Hunter's 20 min off (md.HH_SWI_Checks.Fast.$on; see md/headhunterhunted.xml). The default
+       is read when a hunt's order starts, so a switch applies from the next hunt. -->
+  <replace sel="//param[@name='timetocamp']/@default">if @md.HH_SWI_Checks.Fast.$on then 3min else 20min</replace>
+</diff>

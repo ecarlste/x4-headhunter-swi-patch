@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The check helper's ops on Head Hunter's md/headhunterhunted.xml. Applied after the patch's
+     (the helper depends on it). Grouped by ticket so parallel edits merge cleanly. -->
+<diff>
+  <!-- Log lines (#24): the hunter pick and the hunt target, right after SpawnHunters picks.
+       $hhswi_eligible is the patch's pick filter result (empty: no group this time). -->
+  <add sel="//cue[@name='SpawnHunters']/actions/set_value[@name='$SendingFaction']" pos="after">
+    <signal_cue_instantly cue="md.HH_SWI_Checks.Hunter_Pick" param="table[$faction = $SendingFaction, $eligible = @$hhswi_eligible, $target = $playertarget]"/>
+  </add>
+
+  <!-- Send hunters now (#24): the helper's button signals this cue with a wanted player-owned
+       ship. It sits beside HunterTimer, so $playertarget is the same variable HunterTimer sets
+       and SpawnHunters and HuntersCreated read. SpawnHunters' own condition (no hunters out)
+       still applies. -->
+  <add sel="//cue[@name='Init']/cues">
+    <cue name="HHSWI_Send_Hunters_Now" instantiate="true">
+      <conditions>
+        <event_cue_signalled/>
+      </conditions>
+      <actions>
+        <set_value name="$playertarget" exact="event.param"/>
+        <signal_cue_instantly cue="SpawnHunters"/>
+      </actions>
+    </cue>
+  </add>
+
+  <!-- Timing overrides (#24), switched at run time by md.HH_SWI_Checks.Fast.$on (the helper's
+       "Fast timings on/off" button; on by default). Fast: HunterTimer every 1 min at 100%, hunter
+       lifetime 10 min (search give-up 3 min is in aiscripts/headhunter.assassinate.xml).
+       Off: Head Hunter's every 10 min at 25%, 45 min (and 20 min).
+       checkinterval must be a constant (md.xsd), so it can't switch: it becomes 1 min, and with
+       fast timings off a gate lets HunterTimer through only in the minute after each tick of the
+       helper's 10-minute Slow_Clock, once per tick: Head Hunter's 10-minute cadence. -->
+  <replace sel="//cue[@name='HunterTimer']/@checkinterval">60s</replace>
+  <add sel="//cue[@name='HunterTimer']/conditions">
+    <check_value value="@md.HH_SWI_Checks.Fast.$on or (@md.HH_SWI_Checks.Fast.$slot gt @md.HH_SWI_Checks.Fast.$slot_used and player.age le @md.HH_SWI_Checks.Fast.$slot + 60s)"/>
+  </add>
+  <add sel="//cue[@name='HunterTimer']/actions" pos="prepend">
+    <set_value name="md.HH_SWI_Checks.Fast.$slot_used" exact="@md.HH_SWI_Checks.Fast.$slot"/>
+  </add>
+  <replace sel="//cue[@name='HunterTimer']/actions/signal_cue_instantly[@cue='SpawnHunters']/@chance">if @md.HH_SWI_Checks.Fast.$on then 100 else 25</replace>
+  <replace sel="//cue[@name='HunterTimer']/actions/do_if/do_for_each/do_if[@value='player.age-$timecheckedship.spawntime ge 45min']/@value">player.age-$timecheckedship.spawntime ge (if @md.HH_SWI_Checks.Fast.$on then 10min else 45min)</replace>
+</diff>

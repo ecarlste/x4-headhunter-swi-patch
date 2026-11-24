@@ -54,8 +54,28 @@ It doesn't check the patch's diffs of base-game files (such as a later `librarie
 |---|---|---|
 | Make the targeted ship wanted | Puts your target on Head Hunter's wanted table and board at a fixed 100,000 Cr, last victim faction `galempire`. Player-owned targets also join Head Hunter's player-wanted group. | `[hh-swi-check] make wanted: <id> <name> (<owner>) is now wanted, value 100,000 Cr, …` (or why not: no ship targeted, already wanted, no wanted table yet) |
 | Print the wanted table | Writes a count line, then one line per entry in Head Hunter's wanted table | `[hh-swi-check] wanted table: N entries; …` then `[hh-swi-check] wanted: <id> <name> (<owner>) value … Cr, last seen …, last victim faction …, on the board true/false, exists …` |
+| Send hunters now (#24) | Picks the player-owned wanted ship with the highest board value and signals Head Hunter's `SpawnHunters` at it, as `HunterTimer` would (the patch's pick filter applies). Only while no hunter group is out. | `[hh-swi-check] send hunters: at <id> <name>, board value … Cr …` (or why not: no player-owned wanted ship, a hunter group is already out), then the pick and hunt-target lines below |
+| (dropdown) + Destroy HQ (#24) | The dropdown chooses one of the 13 roster factions; "Destroy HQ" destroys that faction's HQ station (`destroy_object`). X4 picks a new HQ within about 5 min (`CheckHQStatus`), so send hunters soon after. | `[hh-swi-check] destroy HQ: <faction> HQ <id> <name> in <sector> (sector owner …) destroyed; …` (or `… has no HQ right now`); choosing logs `destroy HQ: chosen faction <id>` |
+| Fast timings on/off (#24) | Flips the helper's one timing switch and logs the new state (see [Timing overrides](#timing-overrides)) | `[hh-swi-check] fast timings on: …` / `fast timings off: …` |
 
-The last hunter pick joins "Print the wanted table" with the hunter-groups ticket (#24).
+"Print the wanted table" also prints the last hunter pick (`last hunter pick, at player age …: …`, or `none yet`), one `roster: <faction> active …, HQ … in … (sector owner …)` line per roster faction (to find an HQ in a sector its faction lost), and `fast timings on/off`.
+
+**Log lines from Head Hunter's cues** (#24): every time `SpawnHunters` picks (from `HunterTimer` or "Send hunters now"):
+
+- `[hh-swi-check] hunter pick: <faction> (<name>), HQ <station> in <sector> (sector owner <id>); N of 13 roster factions eligible; skipped <faction> (inactive|no HQ) …`, or `hunter pick: none: no roster faction is active with an HQ, no hunter group this time; …`
+- `[hh-swi-check] hunt target: <id> <name> (<owner>) in <sector>, board value … Cr, player-owned …`
+
+### Timing overrides
+
+One switch, `md.HH_SWI_Checks.Fast.$on`, **on** by default in a game the helper is in; the "Fast timings on/off" button flips it at run time. Each override chooses its short value when it's on and Head Hunter's own value when it's off (#24):
+
+| What | Fast (on) | Head Hunter (off) | Takes effect |
+|---|---|---|---|
+| `HunterTimer` | every 1 min, 100% chance | every 10 min, 25% chance | at once |
+| Hunter search give-up (`timetocamp`) | 3 min | 20 min | from the next hunt (read when the hunt's order starts) |
+| Hunter lifetime (orphan clean-up in `HunterTimer`) | 10 min | 45 min | at once |
+
+`HunterTimer`'s `checkinterval` can't switch (X4 wants it constant), so the helper sets it to 1 min, and with fast timings off a gate lets it through only once in the minute after each tick of the helper's own 10-minute clock: Head Hunter's 10-minute cadence, to within a minute. The signing-off full pass (#30) presses "Fast timings on/off" once, checks the log says `off`, and saves.
 
 ## Row format
 
@@ -129,6 +149,16 @@ From the play setup (#20, [play-setup.md](play-setup.md)). They need a real laun
 | P1 | S | Start X4 with `tools/play/play.sh`, check `game.lock` in the install while it runs, then quit | While the game runs, `game.lock` names `what=play 90000401`; after you quit, it's gone. (If the lock is released while the game still runs, `X4_nonsteam.exe` didn't block from WSL, and the script needs another way to wait.) | none | |
 | P2 | S | A new SWI game in `90000401` | Head Hunter's "Head Hunter Mod Installed" message appears, and so does its map tab (the Headhunter Wanted Board) | none | |
 | P3 | S | Launch profile `90000201` (`swibh`'s) | No sign of Head Hunter: no message, no map tab, and no `chillheadhunter`, `hh_swi_patch` or page `8008574` in its `debuglog.txt` | none | |
+
+### Hunter groups: spawn (#24)
+
+The roster is the 13 SWI factions with military S, M and L ships and an HQ: `galempire, ascendancy, newrepublic, rebelalliance, corporate, commerceguild, huttcartel, mandodw, anoat, hapes, kamino, valarian, blacksun`. Helper on, fast timings on (save "hunter groups A" first). Get a player-owned ship wanted first: target it and press "Make the targeted ship wanted".
+
+| # | Tier | Action | Expected result | Log line | A |
+|---|---|---|---|---|---|
+| 19 | F | Press "Send hunters now" several times (waiting for each group to be gone, or let `HunterTimer` send them); choose a roster faction in the dropdown, press "Destroy HQ", then send hunters again within 5 min until that faction would have been picked; then use "Print the wanted table" to find an HQ in a sector its faction no longer owns (or `set_owner` one such sector) and send until that faction is picked | Every pick is one of the 13; never `boron`, `loanshark`, `split`, `terran`, `pioneers` or a vanilla faction. No `LIB_Create_Ships` error. After "Destroy HQ" the pick line lists that faction as `skipped … (no HQ)` and never picks it while it has no HQ. The faction whose HQ is in a lost sector is still picked and its hunters spawn. If every faction is skipped, no group spawns and the log says so | `[hh-swi-check] hunter pick: …`, `[hh-swi-check] hunt target: …`, `[hh-swi-check] destroy HQ: …`; no `Error` naming `LIB_Create_Ships`, `HeadHunterHunted` or `HH_SWI_Checks` | |
+| 20 | F | Get hunted (as row 19) while you're far from the picked faction's HQ sector; watch the hunters on the map; change sector once they're close; then stay off their radar in a sector | The hunters appear at the centre of the HQ sector named in the pick line, not near you, and travel towards you. When you change sector they follow. Off their radar they give up when the search time runs out (3 min fast, 20 min off) and despawn; the group is cleared by the lifetime at the latest (10 min fast, 45 min off) | `[hh-swi-check] hunter pick: … HQ … in <sector> …` | |
+| 21 | F | Watch one hunter from a lawful faction (not `blacksun` or `valarian`) before and after it has you on radar | Before contact it shows its faction's ordinary name and isn't hostile (not red). After contact its name is "… Head Hunter", it's hostile, and its ID code is the same. A `blacksun` or `valarian` hunter is hostile from spawn: expected, not a failure | none | |
 
 ### Smoke checks
 

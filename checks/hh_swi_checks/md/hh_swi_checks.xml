@@ -13,7 +13,10 @@
      3. Timing overrides: attribute <replace> ops in the diff files under
         extensions/chillheadhunter/..., grouped under a "Timing overrides (#n)" comment, apart from
         the log lines, each value set in exactly one op. The full pass needs the log lines on and
-        the overrides off, so the ticket that adds them also decides how they are switched off. -->
+        the overrides off: each override's value is an expression on the one switch
+        md.HH_SWI_Checks.Fast.$on (the Fast cue below, on by default, flipped by the
+        "Fast timings on/off" button), choosing the short value when on and Head Hunter's own
+        value when off (#24). -->
 <mdscript name="HH_SWI_Checks" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
   <cues>
 
@@ -54,6 +57,10 @@
       <actions>
         <signal_cue_instantly cue="Add_Button_Row" param="table[$label = 'Make the targeted ship wanted', $tip = 'Puts the ship you have targeted on the Head Hunter wanted board', $onClick = Button_Make_Target_Wanted]"/>
         <signal_cue_instantly cue="Add_Button_Row" param="table[$label = 'Print the wanted table', $tip = 'Writes every wanted ship to debuglog.txt as [hh-swi-check] lines', $onClick = Button_Print_Wanted_Table]"/>
+        <!-- Hunter groups (#24) -->
+        <signal_cue_instantly cue="Add_Button_Row" param="table[$label = 'Send hunters now', $tip = 'Sends a hunter group at the player-owned wanted ship with the highest board value (only while no hunter group is out)', $onClick = Button_Send_Hunters_Now]"/>
+        <signal_cue_instantly cue="Add_HQ_Row"/>
+        <signal_cue_instantly cue="Add_Button_Row" param="table[$label = 'Fast timings on/off', $tip = 'Switches the shortened hunter timings (1 min timer at 100 percent, 3 min search, 10 min lifetime) on or off and logs the new state', $onClick = Button_Toggle_Fast]"/>
       </actions>
     </cue>
 
@@ -130,7 +137,183 @@
             <signal_cue_instantly cue="Log" param="'wanted: %s %s (%s) value %s Cr, last seen %s, last victim faction %s, on the board %s, exists %s'.[@$ship.idcode, @$ship.knownname, @$ship.owner.id, @$entry.$value.formatted.default, @$entry.$lastseen.knownname, @$entry.$lastvictimfaction.id, global.$HHAllWanted.indexof.{$ship} gt 0, @$ship.exists]"/>
           </do_for_each>
         </do_else>
-        <!-- The last hunter pick is added here by the hunter-groups ticket (#24) -->
+        <!-- The last hunter pick, and where each roster faction's HQ is (#24) -->
+        <do_if value="Hunter_Pick.$last?">
+          <signal_cue_instantly cue="Log" param="'last hunter pick, at player age %s (now %s): %s'.[Hunter_Pick.$lasttime, player.age, Hunter_Pick.$last]"/>
+        </do_if>
+        <do_else>
+          <signal_cue_instantly cue="Log" param="'last hunter pick: none yet'"/>
+        </do_else>
+        <do_for_each name="$faction" in="Roster.$factions">
+          <signal_cue_instantly cue="Log" param="'roster: %s active %s, HQ %s in %s (sector owner %s)'.[$faction.id, $faction.isactive, @$faction.headquarters.knownname, @$faction.headquarters.sector.knownname, @$faction.headquarters.sector.owner.id]"/>
+        </do_for_each>
+        <signal_cue_instantly cue="Log" param="'fast timings %s'.[if @Fast.$on then 'on' else 'off']"/>
+      </actions>
+    </cue>
+
+    <!-- ===== Hunter groups (#24) ===== -->
+
+    <!-- The patch's hunter roster (patch/hh_swi_patch/.../md/headhunterhunted.xml), kept here
+         for the HQ dropdown, the pick log and the print. $hqfaction is the faction the HQ
+         dropdown has chosen. -->
+    <cue name="Roster" namespace="this">
+      <actions>
+        <set_value name="$factions" exact="[faction.galempire, faction.ascendancy, faction.newrepublic, faction.rebelalliance, faction.corporate, faction.commerceguild, faction.huttcartel, faction.mandodw, faction.anoat, faction.hapes, faction.kamino, faction.valarian, faction.blacksun]"/>
+        <set_value name="$hqfaction" exact="$factions.{1}"/>
+      </actions>
+    </cue>
+
+    <!-- The hunter pick, signalled from SpawnHunters right after it picks: event.param =
+         table[$faction (picked), $eligible (the patch's pick filter result), $target]. Logs the
+         pick and the hunt target, and keeps both for "Print the wanted table". -->
+    <cue name="Hunter_Pick" instantiate="true" namespace="static">
+      <conditions>
+        <event_cue_signalled/>
+      </conditions>
+      <actions>
+        <set_value name="$faction" exact="event.param.$faction"/>
+        <set_value name="$eligible" exact="if typeof event.param.$eligible == datatype.list then event.param.$eligible else []"/>
+        <set_value name="$target" exact="event.param.$target"/>
+        <set_value name="$skipped" exact="''"/>
+        <do_for_each name="$f" in="Roster.$factions">
+          <do_if value="not $eligible.indexof.{$f}">
+            <set_value name="$skipped" exact="$skipped + ' %s (%s)'.[$f.id, if not $f.isactive then 'inactive' else 'no HQ']"/>
+          </do_if>
+        </do_for_each>
+        <do_if value="$eligible.count == 0">
+          <set_value name="$pick" exact="'none: no roster faction is active with an HQ, no hunter group this time; skipped' + $skipped"/>
+        </do_if>
+        <do_else>
+          <set_value name="$pick" exact="'%s (%s), HQ %s in %s (sector owner %s); %s of %s roster factions eligible; skipped%s'.[$faction.id, $faction.knownname, @$faction.headquarters.knownname, @$faction.headquarters.sector.knownname, @$faction.headquarters.sector.owner.id, $eligible.count, Roster.$factions.count, if $skipped == '' then ' none' else $skipped]"/>
+        </do_else>
+        <set_value name="$hunt" exact="'%s %s (%s) in %s, board value %s Cr, player-owned %s'.[@$target.idcode, @$target.knownname, @$target.owner.id, @$target.sector.knownname, @global.$HeadHunterWantedTracker.{$target}.$value.formatted.default, @$target.isplayerowned]"/>
+        <signal_cue_instantly cue="Log" param="'hunter pick: ' + $pick"/>
+        <signal_cue_instantly cue="Log" param="'hunt target: ' + $hunt"/>
+        <set_value name="$last" exact="$pick + ' / target ' + $hunt"/>
+        <set_value name="$lasttime" exact="player.age"/>
+      </actions>
+    </cue>
+
+    <!-- Send hunters now: at the player-owned wanted ship with the highest board value, through
+         the HHSWI_Send_Hunters_Now cue the helper adds beside HunterTimer -->
+    <cue name="Button_Send_Hunters_Now" instantiate="true" namespace="this">
+      <conditions>
+        <event_cue_signalled/>
+      </conditions>
+      <actions>
+        <set_value name="$best" exact="null"/>
+        <do_if value="global.$HHAllPlayerWanted? and global.$HeadHunterWantedTracker?">
+          <do_for_each name="$ship" in="global.$HHAllPlayerWanted">
+            <do_if value="$ship.exists and global.$HeadHunterWantedTracker.{$ship}? and (not $best or global.$HeadHunterWantedTracker.{$ship}.$value gt global.$HeadHunterWantedTracker.{$best}.$value)">
+              <set_value name="$best" exact="$ship"/>
+            </do_if>
+          </do_for_each>
+        </do_if>
+        <do_if value="not $best">
+          <signal_cue_instantly cue="Log" param="'send hunters: no player-owned wanted ship'"/>
+        </do_if>
+        <do_elseif value="@global.$HHHunters.count gt 0">
+          <signal_cue_instantly cue="Log" param="'send hunters: a hunter group is already out (%s ships), none sent'.[global.$HHHunters.count]"/>
+        </do_elseif>
+        <do_else>
+          <signal_cue_instantly cue="Log" param="'send hunters: at %s %s, board value %s Cr (Head Hunters option on: %s)'.[$best.idcode, $best.knownname, global.$HeadHunterWantedTracker.{$best}.$value.formatted.default, @global.$HeadHunterHuntersEnabled]"/>
+          <signal_cue_instantly cue="md.HeadHunterHunted.HHSWI_Send_Hunters_Now" param="$best"/>
+        </do_else>
+      </actions>
+    </cue>
+
+    <!-- The HQ row: a dropdown of the roster factions, and a button that destroys the chosen
+         faction's HQ -->
+    <cue name="Add_HQ_Row" instantiate="true" namespace="this">
+      <conditions>
+        <event_cue_signalled/>
+      </conditions>
+      <actions>
+        <set_value name="$options" exact="[]"/>
+        <do_for_each name="$faction" in="Roster.$factions">
+          <append_to_list name="$options" exact="table[$text = $faction.knownname]"/>
+        </do_for_each>
+        <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row"/>
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Dropdown" param="table[
+          $col = 1,
+          $options = $options,
+          $startOption = Roster.$factions.indexof.{Roster.$hqfaction},
+          $mouseOverText = 'The roster faction whose HQ the button destroys',
+          $onDropDownConfirmed = Choose_HQ_Faction,
+        ]"/>
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Button" param="table[
+          $col = 2,
+          $text = table[$text = 'Destroy HQ', $halign = 'center'],
+          $mouseOverText = 'Destroys the chosen roster faction HQ station (X4 picks a new HQ within about 5 min)',
+          $onClick = Button_Destroy_HQ,
+        ]"/>
+      </actions>
+    </cue>
+
+    <!-- The HQ dropdown's choice: event.param.$option_index into Roster.$factions -->
+    <cue name="Choose_HQ_Faction" instantiate="true" namespace="this">
+      <conditions>
+        <event_cue_signalled/>
+      </conditions>
+      <actions>
+        <do_if value="Roster.$factions.{event.param.$option_index}?">
+          <set_value name="Roster.$hqfaction" exact="Roster.$factions.{event.param.$option_index}"/>
+        </do_if>
+        <signal_cue_instantly cue="Log" param="'destroy HQ: chosen faction %s'.[Roster.$hqfaction.id]"/>
+      </actions>
+    </cue>
+
+    <!-- Destroy a roster faction's HQ: the faction chosen in the HQ dropdown -->
+    <cue name="Button_Destroy_HQ" instantiate="true" namespace="this">
+      <conditions>
+        <event_cue_signalled/>
+      </conditions>
+      <actions>
+        <set_value name="$faction" exact="Roster.$hqfaction"/>
+        <set_value name="$hq" exact="$faction.headquarters"/>
+        <do_if value="not @$hq.exists">
+          <signal_cue_instantly cue="Log" param="'destroy HQ: %s has no HQ right now'.[$faction.id]"/>
+        </do_if>
+        <do_else>
+          <signal_cue_instantly cue="Log" param="'destroy HQ: %s HQ %s %s in %s (sector owner %s) destroyed; send hunters within about 5 min to see it skipped'.[$faction.id, $hq.idcode, $hq.knownname, $hq.sector.knownname, @$hq.sector.owner.id]"/>
+          <destroy_object object="$hq" explosion="true"/>
+        </do_else>
+      </actions>
+    </cue>
+
+    <!-- ===== Timing overrides (#24) ===== -->
+
+    <!-- The one switch for the helper's timing overrides: the ops under extensions/chillheadhunter/
+         read md.HH_SWI_Checks.Fast.$on. On by default; the full pass switches it off with the
+         "Fast timings on/off" button. $slot and $slot_used are Slow_Clock's ticks, for the
+         HunterTimer gate that keeps Head Hunter's 10-minute cadence while it is off. -->
+    <cue name="Fast" namespace="this">
+      <actions>
+        <set_value name="$on" exact="true"/>
+        <set_value name="$slot" exact="-1s"/>
+        <set_value name="$slot_used" exact="-1s"/>
+      </actions>
+    </cue>
+
+    <!-- Head Hunter's own HunterTimer interval (600s), ticking for when fast timings are off -->
+    <cue name="Slow_Clock" instantiate="true" namespace="this" checktime="player.age + 30s" checkinterval="600s">
+      <actions>
+        <set_value name="Fast.$slot" exact="player.age"/>
+      </actions>
+    </cue>
+
+    <cue name="Button_Toggle_Fast" instantiate="true" namespace="this">
+      <conditions>
+        <event_cue_signalled/>
+      </conditions>
+      <actions>
+        <set_value name="Fast.$on" exact="not @Fast.$on"/>
+        <do_if value="Fast.$on">
+          <signal_cue_instantly cue="Log" param="'fast timings on: HunterTimer every 1 min at 100 percent, search give-up 3 min (from the next hunt), lifetime 10 min'"/>
+        </do_if>
+        <do_else>
+          <signal_cue_instantly cue="Log" param="'fast timings off: HunterTimer every 10 min at 25 percent, search give-up 20 min (from the next hunt), lifetime 45 min'"/>
+        </do_else>
       </actions>
     </cue>
 
