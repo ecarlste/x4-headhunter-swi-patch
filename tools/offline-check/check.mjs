@@ -65,6 +65,16 @@ export function parseXml(text) {
     return doc;
 }
 
+// The root element of the XML file at file, or null if it can't be read or parsed (the
+// well-formed check reports why)
+export function xmlRoot(file) {
+    try {
+        return parseXml(fs.readFileSync(file, 'utf8')).documentElement;
+    } catch {
+        return null;
+    }
+}
+
 // How many nodes an XPath selects in doc, or why it can't be counted. X4 reads sel as XPath, so
 // a[@x='y'][2] is the 2nd match.
 export function countPath(expr, doc) {
@@ -120,12 +130,8 @@ export function checkDiffs(extDir, targets, earlier = []) {
         const folder = parts[1];
         const targetRel = parts.slice(2).join('/');
         const label = `${folder}/${targetRel}`;
-        let diff;
-        try {
-            diff = parseXml(fs.readFileSync(path.join(extDir, rel), 'utf8')).documentElement;
-        } catch {
-            continue; // the well-formed check fails it
-        }
+        const diff = xmlRoot(path.join(extDir, rel));
+        if (!diff) continue; // the well-formed check fails it
         if (!targets[folder]) {
             bad.push(`${rel}: no installed copy of ${folder} is known to the checker`);
             continue;
@@ -181,14 +187,8 @@ export function checkDiffs(extDir, targets, earlier = []) {
 function patchedDoc(targetFile, diffFiles) {
     const doc = parseXml(fs.readFileSync(targetFile, 'utf8'));
     for (const f of diffFiles) {
-        if (!fs.existsSync(f)) continue;
-        let diff;
-        try {
-            diff = parseXml(fs.readFileSync(f, 'utf8')).documentElement;
-        } catch {
-            continue;
-        }
-        if (diff.tagName === 'diff') applyDiff(doc, diff);
+        const diff = fs.existsSync(f) ? xmlRoot(f) : null;
+        if (diff?.tagName === 'diff') applyDiff(doc, diff);
     }
     return doc;
 }
@@ -251,12 +251,8 @@ export function checkBaseDiffs(extDir, orders) {
     const notes = [];
     const bad = [];
     for (const rel of xmlFiles(extDir).filter((r) => r.startsWith('libraries/'))) {
-        let diff;
-        try {
-            diff = parseXml(fs.readFileSync(path.join(extDir, rel), 'utf8')).documentElement;
-        } catch {
-            continue; // the well-formed check fails it
-        }
+        const diff = xmlRoot(path.join(extDir, rel));
+        if (!diff) continue; // the well-formed check fails it
         const scenarios = orders[rel];
         if (!scenarios) {
             bad.push(`${rel}: no base-game file and load orders are known to the checker`);
@@ -306,12 +302,8 @@ export function checkBaseDiffs(extDir, orders) {
 export function checkContent(extDir, requires) {
     const file = path.join(extDir, 'content.xml');
     if (!fs.existsSync(file)) return { notes: [], bad: ['no content.xml'] };
-    let content;
-    try {
-        content = parseXml(fs.readFileSync(file, 'utf8')).documentElement;
-    } catch {
-        return { notes: [], bad: [] }; // the well-formed check fails it
-    }
+    const content = xmlRoot(file);
+    if (!content) return { notes: [], bad: [] }; // the well-formed check fails it
     const bad = [];
     const id = content.getAttribute('id');
     const folder = path.basename(extDir);
@@ -347,12 +339,8 @@ export function checkOwnMd(extDir, knownElements) {
     const notes = [];
     const bad = [];
     for (const rel of xmlFiles(extDir).filter((r) => r.startsWith('md/'))) {
-        let root;
-        try {
-            root = parseXml(fs.readFileSync(path.join(extDir, rel), 'utf8')).documentElement;
-        } catch {
-            continue; // the well-formed check fails it
-        }
+        const root = xmlRoot(path.join(extDir, rel));
+        if (!root) continue; // the well-formed check fails it
         if (root.tagName !== 'mdscript') {
             bad.push(`${rel}: the root is <${root.tagName}>, not <mdscript>`);
             continue;
@@ -417,21 +405,13 @@ export function checkCopies(extDir, hhDir) {
     const known = new Set();
     if (!fs.existsSync(hhDir)) return { notes, bad }; // checkDiffs reports the missing install
     for (const rel of xmlFiles(hhDir)) {
-        let root;
-        try {
-            root = parseXml(fs.readFileSync(path.join(hhDir, rel), 'utf8')).documentElement;
-        } catch {
-            continue;
-        }
+        const root = xmlRoot(path.join(hhDir, rel));
+        if (!root) continue;
         for (const el of [root, ...Array.from(root.getElementsByTagName('*'))]) known.add(subtreeKey(el));
     }
     for (const rel of xmlFiles(extDir)) {
-        let diff;
-        try {
-            diff = parseXml(fs.readFileSync(path.join(extDir, rel), 'utf8')).documentElement;
-        } catch {
-            continue; // the well-formed check fails it
-        }
+        const diff = xmlRoot(path.join(extDir, rel));
+        if (!diff) continue; // the well-formed check fails it
         if (diff.tagName !== 'diff') continue;
         for (const op of elementChildren(diff).filter((el) => ['add', 'replace'].includes(el.tagName))) {
             const copies = [];

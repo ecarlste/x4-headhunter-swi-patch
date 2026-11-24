@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import xpath from 'xpath';
-import { parseXml } from './check.mjs';
+import { xmlRoot } from './check.mjs';
 
 const PATCH_FILE = 'extensions/chillheadhunter/md/headhunterhunted.xml';
 const HELPER_FILE = 'md/hh_swi_checks.xml';
@@ -14,14 +14,9 @@ const listItems = (text) => text.trim().replace(/^\[|\]$/g, '').split(',').map((
 
 // The text at expr in file, or null if the file or the node isn't there
 function textAt(file, expr) {
-    if (!fs.existsSync(file)) return null;
-    let doc;
-    try {
-        doc = parseXml(fs.readFileSync(file, 'utf8'));
-    } catch {
-        return null; // the well-formed check fails it
-    }
-    const [node] = xpath.select(expr, doc);
+    const root = fs.existsSync(file) ? xmlRoot(file) : null;
+    if (!root) return null; // the well-formed check fails a file that doesn't parse
+    const [node] = xpath.select(expr, root);
     return node ? (node.nodeType === 2 ? node.value : node.textContent) : null;
 }
 
