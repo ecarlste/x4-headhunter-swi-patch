@@ -40,7 +40,7 @@ It can't tell whether an op does what it should. Only the rows below can.
 - **Mods:** SWI 0.91 HF1, Head Hunter 2.0.8, SirNukes Mod Support APIs 1.95, and the patch at the commit under test (copy `patch/hh_swi_patch/` to `extensions\hh_swi_patch\`, replacing the old folder). Reaper's Ship Pack, A Pirate's Life and Mycu's tooltips stay off.
 - **Start:** a fresh SWI new game on a standard SWI start (not a custom start) in `90000401`. Write the start's name in the run's column. `swibh`'s series saves are never used.
 - **Saves:** save before each group of checks (general bounties, wanted bounties, hunter groups, UI), named after the group and the run, so a failed check can be retried from there.
-- **The check helper:** `hh_swi_checks` is on only while checks run, never in play. See [The check helper](#the-check-helper) below. Its timing overrides are on for quick runs and **off** for the signing-off full pass.
+- **The check helper:** `hh_swi_checks` is on only while checks run, never in play. See [The check helper](#the-check-helper) below. Its timing overrides are on for quick runs and **off** for the signing-off full pass. Fast timings are **on** in every new game the helper is in, so before the full pass, and before any check that needs Head Hunter's real timings, press "Fast timings on/off" once and check the log says `[hh-swi-check] fast timings off: …`, then save.
 
 ## The check helper
 
@@ -83,7 +83,8 @@ One switch, `md.HH_SWI_Checks.Fast.$on`, **on** by default in a game the helper 
 | Hunter search give-up (`timetocamp`) | 3 min | 20 min | from the next hunt (read when the hunt's order starts) |
 | Hunter lifetime (orphan clean-up in `HunterTimer`) | 10 min | 45 min | at once |
 
-`HunterTimer`'s `checkinterval` can't switch (X4 wants it constant), so the helper sets it to 1 min, and with fast timings off a gate lets it through only once in the minute after each tick of the helper's own 10-minute clock: Head Hunter's 10-minute cadence, to within a minute. The signing-off full pass (#30) presses "Fast timings on/off" once, checks the log says `off`, and saves.
+`HunterTimer`'s `checkinterval` can't switch (X4 wants it constant), so the helper sets it to 1 min, and with fast timings off a gate lets it through only once in the minute after each tick of the helper's own 10-minute clock: Head Hunter's 10-minute cadence, to within a minute. The cadence keeps the helper clock's phase, not Head Hunter's: `Slow_Clock` starts 30 s after the helper does, `HunterTimer` 30 s after Head Hunter's cue does, so with fast timings off a pick lands up to a minute after a `Slow_Clock` tick, and the first one after switching off can come anywhere from under a minute to about 11 minutes later (Head Hunter alone would also wait up to 10). Don't time a row from the button press. The signing-off full pass (#30) presses "Fast timings on/off" once, checks the log says `off`, and saves.
+
 ## Row format
 
 Each row has: **#** (the id used in issues), **tier** (F = focused: a feature the patch changes or that was dead before it; S = smoke: a feature the patch doesn't touch, one action and one expected result), **action**, **expected result**, the **log line** to look for in `debuglog.txt` (or "none"), and one cell per run: `pass`, `fail` (with a note or issue link), or empty for not run. "Helper" means a `[hh-swi-check]` line or a helper button.
