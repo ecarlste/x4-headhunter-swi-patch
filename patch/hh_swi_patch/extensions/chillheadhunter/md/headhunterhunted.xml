@@ -42,6 +42,11 @@
   <replace sel="//cue[@name='SpawnHunters']/actions/do_all[@counter='$i']/do_elseif[@value='$supportingtargets.{$i}.isclass.ship_m and $supportingtargets.{$i}.primarypurpose == purpose.fight']/@value">$supportingtargets.{$i}.isclass.ship_m and ($supportingtargets.{$i}.primarypurpose == purpose.fight or $supportingtargets.{$i} == $playertarget)</replace>
   <replace sel="//cue[@name='SpawnHunters']/actions/do_all[@counter='$i']/do_elseif[@value='$supportingtargets.{$i}.isclass.ship_l and $supportingtargets.{$i}.primarypurpose == purpose.fight']/@value">$supportingtargets.{$i}.isclass.ship_l and ($supportingtargets.{$i}.primarypurpose == purpose.fight or $supportingtargets.{$i} == $playertarget)</replace>
   <replace sel="//cue[@name='SpawnHunters']/actions/do_all[@counter='$i']/do_elseif[@value='$supportingtargets.{$i}.isclass.ship_xl and $supportingtargets.{$i}.primarypurpose == purpose.fight']/@value">$supportingtargets.{$i}.isclass.ship_xl and ($supportingtargets.{$i}.primarypurpose == purpose.fight or $supportingtargets.{$i} == $playertarget)</replace>
+  <!-- ...and counts once. The search is owner="faction.player" from $playertarget, and Head Hunter
+       appends $playertarget afterwards; a gravidar search can find its own scanning object
+       (vanilla md/cinematiccamera.xml passes excluded="$Object" for that), so the target is left
+       out of the search and counted only through the append. -->
+  <add sel="//cue[@name='SpawnHunters']/actions/find_gravidar_contact[@name='$supportingtargets']" type="@excluded">$playertarget</add>
   <!-- /Fleet count (#25) -->
 
   <!-- Hunt lifecycle (#26), spec #18 bug fix 6: the hunt target stays fixed. HunterTimer used to
