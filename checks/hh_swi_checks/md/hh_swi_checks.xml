@@ -54,6 +54,8 @@
       <actions>
         <signal_cue_instantly cue="Add_Button_Row" param="table[$label = 'Make the targeted ship wanted', $tip = 'Puts the ship you have targeted on the Head Hunter wanted board', $onClick = Button_Make_Target_Wanted]"/>
         <signal_cue_instantly cue="Add_Button_Row" param="table[$label = 'Print the wanted table', $tip = 'Writes every wanted ship to debuglog.txt as [hh-swi-check] lines', $onClick = Button_Print_Wanted_Table]"/>
+        <!-- Force-bail (#28) -->
+        <signal_cue_instantly cue="Add_Button_Row" param="table[$label = 'Force-bail the targeted ship', $tip = 'Makes the crew of the ship you have targeted bail out now (checks 8a, 8b)', $onClick = Button_Force_Bail_Target]"/>
       </actions>
     </cue>
 
@@ -131,6 +133,33 @@
           </do_for_each>
         </do_else>
         <!-- The last hunter pick is added here by the hunter-groups ticket (#24) -->
+      </actions>
+    </cue>
+
+    <!-- Force-bail the targeted ship (#28): the crew of player.target bail out now, so Head
+         Hunter's S/M capture handler runs (checks 8a, 8b). The bail itself names no attacker, so
+         whether it pays is decided by the patch's 60 s player-hit stamp alone. -->
+    <cue name="Button_Force_Bail_Target" instantiate="true" namespace="this">
+      <conditions>
+        <event_cue_signalled/>
+      </conditions>
+      <actions>
+        <set_value name="$ship" exact="player.target"/>
+        <do_if value="not @$ship.isclass.ship">
+          <signal_cue_instantly cue="Log" param="'force-bail: no ship targeted'"/>
+        </do_if>
+        <do_elseif value="$ship.isplayerowned">
+          <signal_cue_instantly cue="Log" param="'force-bail: %s %s is player-owned, not bailed'.[$ship.idcode, $ship.knownname]"/>
+        </do_elseif>
+        <do_elseif value="$ship.isclass.ship_xs">
+          <signal_cue_instantly cue="Log" param="'force-bail: %s %s is an XS ship, which cannot bail'.[$ship.idcode, $ship.knownname]"/>
+        </do_elseif>
+        <do_else>
+          <signal_cue_instantly cue="Log" param="'force-bail: %s %s (%s), wanted %s, value %s Cr, last player hit at %s (now %s)'.[$ship.idcode, $ship.knownname, $ship.owner.id, @global.$HHAllWanted.indexof.{$ship} gt 0, @global.$HeadHunterWantedTracker.{$ship}.$value.formatted.default, @global.$HeadHunterWantedTracker.{$ship}.$hhswiplayerhit, player.age]"/>
+          <cancel_all_orders object="$ship"/>
+          <cease_fire object="$ship"/>
+          <eject_npcs object="$ship" force="true"/>
+        </do_else>
       </actions>
     </cue>
 

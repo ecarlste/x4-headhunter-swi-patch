@@ -9,6 +9,7 @@ Nothing here is marked passed unless a run in game saw it. An empty run cell mea
 - **Extension id and folder: `hh_swi_patch`.** In this repo it lives at `patch/hh_swi_patch/`; installed, at `extensions\hh_swi_patch\`. The id and the folder are the same string, so a dependency (by id) and a path (by folder) can't be confused. It pairs with the check helper `hh_swi_checks` (`checks/hh_swi_checks/`), and the `patch/` and `checks/` folders keep the two extensions side by side at the repo root.
 - `content.xml`: `<dependency version="800"/>`; `ws_2992233767` (Head Hunter) and `SW Interworlds` (SWI) required; `ws_2042901274` (SirNukes) optional. Content ids, not folder names, so the patch loads after all three. It ships `enabled="0"`; `tools/play/play.sh` turns it on in `90000401`.
 - Its diffs of Head Hunter go under `patch/hh_swi_patch/extensions/chillheadhunter/...`, Head Hunter's **folder** name. That this reaches Head Hunter's loose (non-`.cat`) files is what C1 settles.
+- Its own cues, written here, are in `patch/hh_swi_patch/md/hh_swi_patch.xml` (mdscript `HH_SWI_Patch`), such as the player-hit stamp behind S/M capture pay (#28).
 
 ## Offline check
 
@@ -55,7 +56,14 @@ It doesn't check the patch's diffs of base-game files (such as a later `librarie
 | Make the targeted ship wanted | Puts your target on Head Hunter's wanted table and board at a fixed 100,000 Cr, last victim faction `galempire`. Player-owned targets also join Head Hunter's player-wanted group. | `[hh-swi-check] make wanted: <id> <name> (<owner>) is now wanted, value 100,000 Cr, …` (or why not: no ship targeted, already wanted, no wanted table yet) |
 | Print the wanted table | Writes a count line, then one line per entry in Head Hunter's wanted table | `[hh-swi-check] wanted table: N entries; …` then `[hh-swi-check] wanted: <id> <name> (<owner>) value … Cr, last seen …, last victim faction …, on the board true/false, exists …` |
 
+| Force-bail the targeted ship (#28) | The crew of your target bail out now (`eject_npcs` with `force`), so Head Hunter's S/M capture handler runs if the ship is wanted. Refuses player-owned and XS ships. | `[hh-swi-check] force-bail: <id> <name> (<owner>), wanted true/false, value … Cr, last player hit at <time or null> (now <time>)` (or why not: no ship targeted, player-owned, XS) |
+
 The last hunter pick joins "Print the wanted table" with the hunter-groups ticket (#24).
+
+Log lines the helper adds to Head Hunter's own cues (#28):
+
+- after a wanted claim pays (destroy): `[hh-swi-check] claim: <id> <name> destroyed by <id> <name>, board <value> Cr, paid <reward> Cr, reputation to <faction id>`;
+- after an S/M capture (bail) of a wanted ship: `[hh-swi-check] capture: <id> <name> bailed, board <value> Cr, reward <reward> Cr, last player hit at <time or null> (now <time>), paid true/false`.
 
 ## Row format
 
@@ -111,7 +119,7 @@ From the check helper (#22). They need a real launch by the user.
 |---|---|---|---|---|---|
 | H1 | F | **Helper loads.** Install the helper, launch with `tools/play/play.sh --checks`, start a new SWI game (or load a `90000401` save) | No `Error` lines naming `hh_swi_checks` or `HH_SWI_Checks` (MD or patch errors), other than the known-harmless list | none (grep for errors, below) | |
 | H2 | F | **Helper stays off.** Quit, launch with `tools/play/play.sh` (no flag), load the same game | The "HH SWI checks" menu is gone from Extension Options, and the new `debuglog.txt` doesn't mention `hh_swi_checks` or `HH_SWI_Checks` | none | |
-| H3 | F | **Menu.** With the helper on: Options > Extension Options | An "HH SWI checks" entry opens a menu with "Make the targeted ship wanted" and "Print the wanted table" | none | |
+| H3 | F | **Menu.** With the helper on: Options > Extension Options | An "HH SWI checks" entry opens a menu with "Make the targeted ship wanted", "Print the wanted table" and "Force-bail the targeted ship" (#28) | none | |
 | H4 | F | **Make wanted.** Target an NPC ship that isn't wanted, press "Make the targeted ship wanted", then open Head Hunter's wanted board (Extension Options, and its map tab) | The ship is on the board at 100,000 Cr. Pressing it again logs "already wanted" and changes nothing. With no target it logs "no ship targeted". | `[hh-swi-check] make wanted: … is now wanted, value 100,000 Cr` | |
 | H5 | F | **Print.** After H4, press "Print the wanted table" | A count line, then one line per wanted ship, including H4's ship at 100,000 Cr, on the board true | `[hh-swi-check] wanted table: …`, `[hh-swi-check] wanted: …` | |
 
@@ -129,6 +137,19 @@ From the play setup (#20, [play-setup.md](play-setup.md)). They need a real laun
 | P1 | S | Start X4 with `tools/play/play.sh`, check `game.lock` in the install while it runs, then quit | While the game runs, `game.lock` names `what=play 90000401`; after you quit, it's gone. (If the lock is released while the game still runs, `X4_nonsteam.exe` didn't block from WSL, and the script needs another way to wait.) | none | |
 | P2 | S | A new SWI game in `90000401` | Head Hunter's "Head Hunter Mod Installed" message appears, and so does its map tab (the Headhunter Wanted Board) | none | |
 | P3 | S | Launch profile `90000201` (`swibh`'s) | No sign of Head Hunter: no message, no map tab, and no `chillheadhunter`, `hh_swi_patch` or page `8008574` in its `debuglog.txt` | none | |
+
+### Wanted bounties: claims and captures
+
+From S/M capture pays (#28, spec bug fixes 1 and 2). Save "wanted bounties A" first. "Board figure" is the ship's Wanted Reward on the board just before the action; payouts are rounded down to a whole credit (#6). For 8a-8c, the transaction log (Player Information > Transaction Log) should show the reward, or nothing, at the bail; the "Incoming fund transfer" voice may play even when unpaid (Head Hunter's own payout effect, not changed).
+
+| # | Tier | Action | Expected result | Log line | A |
+|---|---|---|---|---|---|
+| 7 | F | Get a wanted NPC ship (helper "Make the targeted ship wanted", or one from the board) and note its board figure; destroy it with the player's ship | A "HEAD CLAIMED!" notification; the transaction log credit equals the board figure, rounded down (other pay for the same kill, such as a general or police bounty, is separate); the helper line's board and paid figures agree; reputation goes up with the ship's last victim faction (for a helper-made ship, `galempire`) | `[hh-swi-check] claim: … board X Cr, paid X Cr, reputation to <faction>` | |
+| 8a | F | Make a wanted NPC **S or M** ship (helper button), note its board figure, hit it with a player-owned ship, then within 60 s target it and press "Force-bail the targeted ship" (or fight it until its crew bails) | The ship's crew bails, it leaves the board, and the player is paid the board figure, rounded down (transaction log); credits only, no extra reputation, notification or logbook line | `[hh-swi-check] capture: … board X Cr, reward X Cr, last player hit at T (now T+<60s), paid true` | |
+| 8b | F | Make a wanted NPC S or M ship that **no player-owned ship has hit** (or wait over 60 s after the last hit), then force-bail it with the helper button | It leaves the board (bounty cleared), and the player is **not** paid: no credit in the transaction log | `[hh-swi-check] capture: … last player hit at null (or over 60 s before now), paid false` | |
+| 8c | F | Make a wanted NPC **L** ship, then capture it (board it with marines, or force-bail it and claim it) | It leaves the board when it becomes the player's (bounty cleared), and the player is not paid | none from the helper (Head Hunter's L capture handler isn't patched); the board and transaction log show it | |
+
+Also for 8a-8c: no new `Error in MD cue` lines from `SCapturedHandler`, `HH_SWI_Patch` or `HH_SWI_Checks` other than the known-harmless `text="null"` line.
 
 ### Smoke checks
 

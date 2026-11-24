@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<diff>
+  <!-- Log lines (#28): the wanted claim and the S/M capture payouts (checks 7, 8a-c) -->
+  <!-- Claim (destroy): board figure, paid figure and the faction the claim's reputation goes to,
+       after Head Hunter's transfer_money, while the wanted entry still exists -->
+  <add sel="//cue[@name='WantedClaimTracker']/actions/do_if/transfer_money" pos="after">
+    <signal_cue_instantly cue="md.HH_SWI_Checks.Log" param="'claim: %s %s destroyed by %s %s, board %s Cr, paid %s Cr, reputation to %s'.[$wantedship.idcode, $wantedship.knownname, @$wantedclaimer.idcode, @$wantedclaimer.knownname, global.$HeadHunterWantedTracker.{$wantedship}.$value.formatted.default, $rewardCr.formatted.default, @$lastfaction.id]"/>
+  </add>
+  <!-- Capture (S/M bail): keep the board figure before the handler removes the wanted entry -->
+  <add sel="//cue[@name='SCapturedHandler']/actions/set_value[@name='$lastfaction']" pos="after">
+    <set_value name="$hhswichecksBoard" exact="@global.$HeadHunterWantedTracker.{event.object}.$value"/>
+  </add>
+  <!-- ...and log it after the payout: the reward, whether the patch paid it ($hhswiPaid) and when
+       a player-owned ship last hit the ship ($hhswiPlayerHit, null if never; both set by the
+       patch). Paid needs that hit under 60 s before "now". -->
+  <add sel="//cue[@name='SCapturedHandler']/actions/signal_cue_instantly[@cue='PayoutEffect']" pos="after">
+    <signal_cue_instantly cue="md.HH_SWI_Checks.Log" param="'capture: %s %s bailed, board %s Cr, reward %s Cr, last player hit at %s (now %s), paid %s'.[event.object.idcode, event.object.knownname, @$hhswichecksBoard.formatted.default, @$rewardCr.formatted.default, @$hhswiPlayerHit, player.age, @$hhswiPaid]"/>
+  </add>
+  <!-- /Log lines (#28) -->
+</diff>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<diff>
+  <!-- S/M capture pays (#28, spec #18 bug fixes 1 and 2). Head Hunter's SCapturedHandler computes
+       the reward of a bailed (abandoned) wanted S/M ship but never transfers it. These ops pay it,
+       credits only, when a player-owned ship hit the wanted ship in the last 60 s (the stamp
+       written by the patch's own cue HH_SWI_Patch.Stamp_Player_Hit, md/hh_swi_patch.xml), and
+       never for a ship that was player-owned. Otherwise the bail clears the bounty unpaid, as Head
+       Hunter already does. -->
+  <!-- Read the stamp while the wanted entry still exists (the handler removes it next) -->
+  <add sel="//cue[@name='SCapturedHandler']/actions/set_value[@name='$lastfaction']" pos="after">
+    <set_value name="$hhswiPlayerHit" exact="@global.$HeadHunterWantedTracker.{event.object}.$hhswiplayerhit"/>
+    <set_value name="$hhswiPaid" exact="false"/>
+  </add>
+  <!-- Pay before the payout voice, as the destroy claim does -->
+  <add sel="//cue[@name='SCapturedHandler']/actions/signal_cue_instantly[@cue='PayoutEffect']" pos="before">
+    <do_if value="$hhswiPlayerHit != null and player.age lt $hhswiPlayerHit + 60s and not event.object.isplayerowned and not @global.$HHAllPlayerWanted.indexof.{event.object} and @$rewardCr gt 0Cr">
+      <transfer_money from="faction.civilian" to="faction.player" amount="$rewardCr"/>
+      <set_value name="$hhswiPaid" exact="true"/>
+    </do_if>
+  </add>
+  <!-- /S/M capture pays (#28) -->
+</diff>
