@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The patch's ops on Head Hunter's aiscripts/headhunter.assassinate.xml. Grouped by ticket so
+     parallel edits merge cleanly. -->
+<diff>
+  <!-- Hunt lifecycle (#26), spec #18 bug fix 5: language-proof drone checks (see
+       md/headhuntermd.xml). When the hunt gives up, and at each repair check, the leader orders its
+       subordinates except drones; Head Hunter told drones apart by typename != 'Drone', English
+       only. Now by isunit. The two do_if nodes are identical, so each is reached through its own
+       parent. -->
+  <replace sel="//do_if[@value='$searching == true and (player.age gt $searchingstart + $timetocamp)']/do_if/do_all[@counter='$rc']/do_if/@value">not this.assignedcontrolled.subordinates.{$rc}.isunit and this.assignedcontrolled.subordinates.{$rc}.dockslot</replace>
+  <replace sel="//do_if[@value='player.age - $lastrepaircheck ge 300s']/do_if/do_all[@counter='$rc']/do_if/@value">not this.assignedcontrolled.subordinates.{$rc}.isunit and this.assignedcontrolled.subordinates.{$rc}.dockslot</replace>
+  <!-- /Hunt lifecycle (#26) -->
+</diff>
