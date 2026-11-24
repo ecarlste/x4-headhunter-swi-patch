@@ -80,17 +80,28 @@ export function countPath(expr, doc) {
 // Why an op's if (a path, or not(path), as diff.xsd allows) doesn't hold on doc, or null if it
 // does: a path must match exactly one node, and a not(path)'s path none, so the op runs on the
 // installed version
+// ifProblem is strict (a path must match exactly one node), as the sel check against one fixed
+// target file is; ifHolds reads if as X4 does when applying, to simulate load orders.
 function ifProblem(cond, doc, label) {
-    const negated = /^\s*not\((.*)\)\s*$/s.exec(cond);
-    const count = countPath(negated ? negated[1] : cond, doc);
+    const negated = notPath(cond);
+    const count = countPath(negated ?? cond, doc);
     if (typeof count === 'string') return `if: ${count}`;
     if (negated) return count === 0 ? null : `if's path matches ${plural(count)} in ${label} (the op would be skipped)`;
     if (count === 0) return `if matches 0 nodes in ${label} (the op would be skipped)`;
     return count === 1 ? null : `if matches ${plural(count)} in ${label} (want exactly 1)`;
 }
 
-const elementChildren =(el) => Array.from(el.childNodes).filter((n) => n.nodeType === 1);
+const elementChildren = (el) => Array.from(el.childNodes).filter((n) => n.nodeType === 1);
 const plural = (n) => `${n} node${n === 1 ? '' : 's'}`;
+
+// The path inside an if of the form not(path), or null for any other if
+const notPath = (cond) => /^\s*not\((.*)\)\s*$/s.exec(cond)?.[1] ?? null;
+
+// How a report line names a diff op: its file, tag, sel and (if any) if
+function opLabel(rel, op) {
+    const cond = op.getAttribute('if');
+    return `${rel}: <${op.tagName} sel="${op.getAttribute('sel') ?? ''}"${cond === null ? '' : ` if="${cond}"`}>`;
+}
 
 // Check 2: every diff under <extDir>/extensions/<folder>/ patches a file that exists in that
 // folder's installed copy, targets[folder], and each op's sel matches exactly one node there
@@ -144,7 +155,7 @@ export function checkDiffs(extDir, targets) {
         for (const op of elementChildren(diff)) {
             const sel = op.getAttribute('sel') ?? '';
             const cond = op.getAttribute('if');
-            const head = `${rel}: <${op.tagName} sel="${sel}"${cond === null ? '' : ` if="${cond}"`}>`;
+            const head = opLabel(rel, op);
             if (cond !== null) {
                 const problem = ifProblem(cond, doc, label);
                 if (problem) {
@@ -242,10 +253,9 @@ export function checkBaseDiffs(extDir, orders) {
             for (const f of files.slice(1)) applyDiff(doc, parseXml(fs.readFileSync(f, 'utf8')).documentElement);
             checked++;
             for (const [i, op] of ops.entries()) {
-                const sel = op.getAttribute('sel') ?? '';
                 const cond = op.getAttribute('if');
-                const head = `${rel}: <${op.tagName} sel="${sel}"${cond === null ? '' : ` if="${cond}"`}>`;
-                const guard = cond === null ? null : /^\s*not\((.*)\)\s*$/s.exec(cond)?.[1];
+                const head = opLabel(rel, op);
+                const guard = cond === null ? null : notPath(cond);
                 const { ran, count } = applyOne(doc, op);
                 const after = guard ? countPath(guard, doc) : null;
                 if (!ran) {
@@ -262,8 +272,7 @@ export function checkBaseDiffs(extDir, orders) {
         }
         if (checked) for (const [i, op] of ops.entries()) {
             if (ranSomewhere[i]) continue;
-            const cond = op.getAttribute('if');
-            bad.push(`${rel}: <${op.tagName} sel="${op.getAttribute('sel') ?? ''}"${cond === null ? '' : ` if="${cond}"`}>: its if is false in every load order, so it never runs`);
+            bad.push(`${opLabel(rel, op)}: its if is false in every load order, so it never runs`);
         }
     }
     return { notes, bad };
