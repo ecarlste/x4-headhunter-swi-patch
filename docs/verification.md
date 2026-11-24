@@ -130,6 +130,44 @@ From the play setup (#20, [play-setup.md](play-setup.md)). They need a real laun
 | P2 | S | A new SWI game in `90000401` | Head Hunter's "Head Hunter Mod Installed" message appears, and so does its map tab (the Headhunter Wanted Board) | none | |
 | P3 | S | Launch profile `90000201` (`swibh`'s) | No sign of Head Hunter: no message, no map tab, and no `chillheadhunter`, `hh_swi_patch` or page `8008574` in its `debuglog.txt` | none | |
 
+### Smoke checks
+
+From #23: the features the patch doesn't touch, one action and one expected result each. Their first run is the **baseline** against the patch skeleton, before the feature changes land, so anything already broken on SWI shows up here and not in a later ticket. Numbers are the feature numbers from #2 (the [feature note](https://github.com/ecarlste/x4-headhunter-swi-patch/blob/research/headhunter-features/research/headhunter-features.md)). Options are in SirNukes Extension Options, menu "HeadHunter Settings"; the board is the "Headhunter Wanted Board" menu there. Faction ids are SWI's (`ext02/libraries/factions.xml`), with their English names.
+
+**Getting a wanted ship for rows 11-14.** Until the helper's "make the targeted ship wanted" button exists, let NPC wars fill the board (check the board after some play), or have a player ship kill a lawful faction's ship (e.g. `galempire`, Galactic Empire). On the unpatched skeleton a player kill of an SWI pirate (`blacksun`, `huttpirates`, `mandoraiders`, `valarian`) also makes the player ship wanted (#2 §3.1); that is a later ticket's change, not a smoke failure.
+
+**General bounties** (save "general bounties A" first)
+
+| # | Tier | Action | Expected result | Log line | A |
+|---|---|---|---|---|---|
+| 1, 4 | S | With the multiplier at 1.0x, hit a hostile S ship (e.g. a `blacksun` Black Sun fighter) with the player's ship and kill it within 10 minutes of the first hit | An "Earned General Bounty" logbook entry naming the attacker, the victim, the sector and the payer; its money figure is added to the player's account (transaction log), with a bonus of 0 at 1.0x | none | |
+| 2 | S | In a sector owned by an SWI faction (e.g. a `galempire` Galactic Empire sector), kill a ship that is hostile to that owner (e.g. Black Sun), with the player below +1 relation to the owner | A small rep gain with the sector owner (its relation in the Factions menu goes up slightly); the logbook entry's payer is that SWI faction, not "The Intergalactic Bounty Fund" | none | |
+| 3 | S | Set "General Bounty Multiplier" to 2.0x, kill a hostile S ship as in row 1; then set it to 0 and kill another | At 2.0x the logbook's bonus equals its base pay (twice the pay in all); at 0 there is no "Earned General Bounty" entry and no money | none | |
+| 5 | S | Turn "Gain reputation from kills" to Disabled, then repeat row 2 | No rep change with the sector owner from the kill; the general bounty is still paid | none | |
+
+**Wanted bounties, board and language** (save "wanted bounties A" first)
+
+| # | Tier | Action | Expected result | Log line | A |
+|---|---|---|---|---|---|
+| 11, 12 | S | Open the map with a wanted NPC ship and a wanted player-owned ship in a known sector; toggle "Player Wanted Ship Map Markers" off, then on | Each wanted ship has a label with its bounty in brackets, that grows with its kills; with the toggle off the player's own ship has no label, the NPC's still does; on, both show | none | |
+| 13 | S | Set "Proximity Notify Value Threshold" above a wanted ship's value (Head Hunter compares the threshold with the stored value / 100, the units question of #6, so pick values well apart), fly a player ship into its sector within radar range; then set it well below and do the same | Above: no alert. Below: a purple "Wanted Ship Spotted in <sector>" (or, for the player's own ship's contact, "Wanted Ship Nearby!") notification, at most once a minute; the board's "Last Spotted" for that ship becomes this sector | none | |
+| 14 | S | Turn "NPC Wanted Claim Notifications" Enabled and wait for an NPC to kill a wanted ship (the board's count drops); then Disabled and wait for another | Enabled: a "Bounty Claim" notification and a "Bounty Claimed: <ship>" logbook entry per NPC claim. Disabled: neither | none | |
+| 16, 17 | S | Open "Headhunter Wanted Board": switch the "Wanted Faction:" filter to one SWI faction and back, use By Value, By Distance and By Latest Intel; then in "HeadHunter Settings" press "Print to log", then RESET | The board shows MOST WANTED and a row per wanted ship (Wanted Ship, Wanted Reward, Last Spotted, Wanted By, with SWI faction names); the filter shows only that faction's posts; each sort reorders the rows; Print writes one line per wanted ship to Head Hunter's own `wanted` debug file (`debug_to_file`, directory `HeadHunter` in the profile folder; not `debuglog.txt`); after RESET the board is empty | `(HeadHunter Table) Killer: … \|\| Running Total: …` in that file, not in `debuglog.txt` | |
+| 18 | S | Set the game language to German (Deutsch), restart, open the options and the board | Head Hunter's text is in German, e.g. "Headhunter-Gesucht-Board", "MEISTGESUCHT", "Nach Wert". Hard-coded English (the board's column headers, the "HeadHunter Settings" title, the " Head Hunter" suffix) is noted, not failed | none | |
+
+**UI** (save "UI A" first)
+
+| # | Tier | Action | Expected result | Log line | A |
+|---|---|---|---|---|---|
+| 27 | S | Open the map and Head Hunter's tab in the right sidebar; use its location filter ("Show all locations" / "Only known sectors"), its faction filter ("Show all factions" / one SWI faction) and its three sorts | The tab has its icon and a table of wanted ships (Wanted ship, Reward, Last spotted, Wanted by) that follows each filter and sort | none; and no `attempt to index` or `Widget setup error` in the log | |
+| 28 | S | In that tab, double-click the row of a wanted ship last seen in a known sector; then look at a row in an unknown sector | The map centres on the known sector; the unknown one reads "Unknown sector", is greyed out and can't be clicked | none | |
+
+**Triage of a failed smoke row.** A smoke row tests a feature the patch doesn't change, so a failure is either Head Hunter's or SWI's:
+
+1. Rerun it from the group's save with the patch off (`hh_swi_patch` disabled). If it still fails, try it on vanilla X4 with Head Hunter alone (no SWI) when that's quick to set up.
+2. Fails on vanilla too: an **upstream bug**. Write `fail (upstream: <one line>)` in the run cell, note it in the run's Notes, and leave it.
+3. Fails only on SWI, or only with the patch: open a new issue (`needs-triage`) with the row number, the run letter and the log lines, and link it in the run cell: `fail (#n)`.
+
 ## Update procedure
 
 When Head Hunter or SWI updates:
