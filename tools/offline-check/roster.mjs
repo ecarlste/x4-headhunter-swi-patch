@@ -1,6 +1,6 @@
 // The hunter roster is written twice: in the patch (its replace of Head Hunter's $HunterFactions,
 // in extensions/chillheadhunter/md/headhunterhunted.xml) and in the check helper (its Roster
-// cue's $factions, in md/hh_swi_checks.xml). checkRoster reports where the two differ.
+// cue's $factions, in md/hh_swi_checks.xml). compareRosters says where the two differ.
 import fs from 'node:fs';
 import path from 'node:path';
 import xpath from 'xpath';
@@ -20,17 +20,18 @@ function textAt(file, expr) {
     return node ? (node.nodeType === 2 ? node.value : node.textContent) : null;
 }
 
-// { notes, bad }: bad lists each faction only one of the two rosters names
-export function checkRoster(patchDir, helperDir) {
-    const bad = [];
+// { shared, patchOnly, helperOnly }: the factions both rosters name, and those only one names
+// (each in its roster's order). Throws if either roster can't be found.
+export function compareRosters(patchDir, helperDir) {
     const patchText = textAt(path.join(patchDir, PATCH_FILE), `/diff/replace[contains(@sel, "@name='$HunterFactions']/@exact")]`);
+    if (patchText === null) throw new Error(`no $HunterFactions replace in the patch's ${PATCH_FILE}`);
     const helperText = textAt(path.join(helperDir, HELPER_FILE), `//cue[@name='Roster']/actions/set_value[@name='$factions']/@exact`);
-    if (patchText === null) bad.push(`no $HunterFactions replace in the patch's ${PATCH_FILE}`);
-    if (helperText === null) bad.push(`no Roster cue $factions in the helper's ${HELPER_FILE}`);
-    if (bad.length) return { notes: [], bad };
+    if (helperText === null) throw new Error(`no Roster cue $factions in the helper's ${HELPER_FILE}`);
     const patch = listItems(patchText);
     const helper = listItems(helperText);
-    for (const f of patch) if (!helper.includes(f)) bad.push(`${f} is in the patch roster but not the helper roster`);
-    for (const f of helper) if (!patch.includes(f)) bad.push(`${f} is in the helper roster but not the patch roster`);
-    return bad.length ? { notes: [], bad } : { notes: [`the patch and the helper both list the same ${patch.length} hunter factions`], bad };
+    return {
+        shared: patch.filter((f) => helper.includes(f)),
+        patchOnly: patch.filter((f) => !helper.includes(f)),
+        helperOnly: helper.filter((f) => !patch.includes(f)),
+    };
 }

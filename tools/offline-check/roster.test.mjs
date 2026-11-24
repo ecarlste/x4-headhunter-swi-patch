@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { checkRoster } from './roster.mjs';
+import { compareRosters } from './roster.mjs';
 import { REPO } from './paths.mjs';
 import { tree } from './temp-tree.mjs';
 
@@ -22,30 +22,29 @@ const helperRoster = (list) => tree({
 </cues></mdscript>`,
 });
 
-test('the patch and helper rosters agree when they list the same factions', () => {
-    const { notes, bad } = checkRoster(patchRoster('faction.a, faction.b'), helperRoster('faction.a, faction.b'));
-    assert.deepEqual(bad, []);
-    assert.deepEqual(notes, ['the patch and the helper both list the same 2 hunter factions']);
+test('the patch and helper rosters agree when they list the same factions, in any order', () => {
+    assert.deepEqual(compareRosters(patchRoster('faction.a, faction.b'), helperRoster('faction.b, faction.a')), {
+        shared: ['faction.a', 'faction.b'],
+        patchOnly: [],
+        helperOnly: [],
+    });
 });
 
-test('the rosters differ: each faction only one side lists is bad', () => {
-    const { bad } = checkRoster(patchRoster('faction.a, faction.b, faction.c'), helperRoster('faction.a, faction.d'));
-    assert.deepEqual(bad, [
-        'faction.b is in the patch roster but not the helper roster',
-        'faction.c is in the patch roster but not the helper roster',
-        'faction.d is in the helper roster but not the patch roster',
-    ]);
+test('the rosters differ: each faction only one side lists is named, by side', () => {
+    assert.deepEqual(compareRosters(patchRoster('faction.a, faction.b, faction.c'), helperRoster('faction.a, faction.d')), {
+        shared: ['faction.a'],
+        patchOnly: ['faction.b', 'faction.c'],
+        helperOnly: ['faction.d'],
+    });
 });
 
-test('a roster that cannot be found is bad', () => {
-    const { bad } = checkRoster(tree({}), tree({}));
-    assert.equal(bad.length, 2);
-    assert.match(bad[0], /no \$HunterFactions replace in the patch/);
-    assert.match(bad[1], /no Roster cue \$factions in the helper/);
+test('a roster that cannot be found throws, naming which', () => {
+    assert.throws(() => compareRosters(tree({}), helperRoster('faction.a')), /no \$HunterFactions replace in the patch/);
+    assert.throws(() => compareRosters(patchRoster('faction.a'), tree({})), /no Roster cue \$factions in the helper/);
 });
 
 test("this repo's patch and helper list the same 13 hunter factions", () => {
-    const { notes, bad } = checkRoster(path.join(REPO, 'patch/hh_swi_patch'), path.join(REPO, 'checks/hh_swi_checks'));
-    assert.deepEqual(bad, []);
-    assert.deepEqual(notes, ['the patch and the helper both list the same 13 hunter factions']);
+    const { shared, patchOnly, helperOnly } = compareRosters(path.join(REPO, 'patch/hh_swi_patch'), path.join(REPO, 'checks/hh_swi_checks'));
+    assert.deepEqual({ patchOnly, helperOnly }, { patchOnly: [], helperOnly: [] });
+    assert.equal(shared.length, 13);
 });
