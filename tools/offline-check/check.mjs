@@ -375,6 +375,9 @@ export function checkOwnMd(extDir, knownElements) {
     return { notes, bad };
 }
 
+// Whether a node is text or CDATA that isn't blank: a value, not layout
+const isValueText = (n) => (n.nodeType === 3 || n.nodeType === 4) && n.data.trim() !== '';
+
 // An element as a comparable string: its tag, its attributes (in name order) and its children,
 // elements and non-blank text in order; comments, layout, spacing next to punctuation inside a
 // value ([2013, 2111] is [2013,2111]) and doubled spaces don't count, but a space between two
@@ -384,7 +387,7 @@ function subtreeKey(el) {
     const attrs = Array.from(el.attributes).map((a) => `${a.name}=${JSON.stringify(unspaced(a.value))}`).sort();
     const children = Array.from(el.childNodes).flatMap((n) => {
         if (n.nodeType === 1) return [subtreeKey(n)];
-        if ((n.nodeType === 3 || n.nodeType === 4) && n.data.trim()) return [JSON.stringify(unspaced(n.data))];
+        if (isValueText(n)) return [JSON.stringify(unspaced(n.data))];
         return [];
     });
     return `<${el.tagName} ${attrs.join(' ')}>${children.join('')}</>`;
@@ -392,7 +395,7 @@ function subtreeKey(el) {
 
 // Whether an element or anything in it holds a value (an attribute or text): one that holds none,
 // like <conditions><event_cue_signalled/></conditions>, is bare structure, not Head Hunter's code
-const holdsValue = (el) => el.attributes.length > 0 || Array.from(el.childNodes).some((n) => (n.nodeType === 1 ? holdsValue(n) : (n.nodeType === 3 || n.nodeType === 4) && n.data.trim()));
+const holdsValue = (el) => el.attributes.length > 0 || Array.from(el.childNodes).some((n) => (n.nodeType === 1 ? holdsValue(n) : isValueText(n)));
 
 // The reason in an <!-- hh-copy: reason --> comment directly above op, or null if there's none
 function copyMarker(op) {
