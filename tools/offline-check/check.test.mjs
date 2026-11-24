@@ -6,16 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { applyDiff, checkBaseDiffs, checkContent, checkCopies, checkDiffs, checkOwnMd, checkWellFormed, parseXml, xsdElementNames } from './check.mjs';
-
-// A temp folder with the given files (relative path -> text)
-function tree(files) {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hh-offline-'));
-    for (const [rel, text] of Object.entries(files)) {
-        fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
-        fs.writeFileSync(path.join(root, rel), text);
-    }
-    return root;
-}
+import { tree } from './temp-tree.mjs';
 
 test('every XML file in an extension must be well-formed', () => {
     const ext = tree({

@@ -3,21 +3,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { tree } from './temp-tree.mjs';
 
 const here = path.dirname(new URL(import.meta.url).pathname);
 const cli = path.join(here, 'cli.mjs');
-
-function tree(files) {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hh-offline-cli-'));
-    for (const [rel, text] of Object.entries(files)) {
-        fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
-        fs.writeFileSync(path.join(root, rel), text);
-    }
-    return root;
-}
 
 const run = (args, env = {}) => {
     const r = spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', env: { ...process.env, ...env } });

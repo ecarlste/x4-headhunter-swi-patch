@@ -3,20 +3,10 @@
 // Run: node --test tools/offline-check/
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { checkRoster } from './roster.mjs';
 import { REPO } from './paths.mjs';
-
-function tree(files) {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hh-roster-'));
-    for (const [rel, text] of Object.entries(files)) {
-        fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
-        fs.writeFileSync(path.join(root, rel), text);
-    }
-    return root;
-}
+import { tree } from './temp-tree.mjs';
 
 const patchRoster = (list) => tree({
     'extensions/chillheadhunter/md/headhunterhunted.xml': `<diff>
