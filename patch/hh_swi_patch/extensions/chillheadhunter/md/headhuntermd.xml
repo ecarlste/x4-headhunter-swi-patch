@@ -11,6 +11,7 @@
        delay and interactive values. -->
   <replace sel="//cue[@name='Speaky']/@instantiate">false</replace>
   <remove sel="//cue[@name='Speaky']/actions/start_script"/>
+  <!-- hh-copy: a diff can't wrap Head Hunter's existing start_script in the new do_if, so it is re-stated inside it -->
   <add sel="//cue[@name='Speaky']/actions">
     <do_if value="@$FactionRep.exists">
       <start_script object="$FactionRep" name="'player.interaction'">

@@ -352,3 +352,76 @@ export function checkOwnMd(extDir, knownElements) {
     }
     return { notes, bad };
 }
+
+// An element as a comparable string: its tag, its attributes (in name order) and its children,
+// elements and non-blank text in order; comments, layout and spacing inside values
+// ([2013, 2111] is [2013,2111]) don't count
+const unspaced = (s) => s.replace(/\s+/g, '');
+function subtreeKey(el) {
+    const attrs = Array.from(el.attributes).map((a) => `${a.name}=${JSON.stringify(unspaced(a.value))}`).sort();
+    const children = Array.from(el.childNodes).flatMap((n) => {
+        if (n.nodeType === 1) return [subtreeKey(n)];
+        if ((n.nodeType === 3 || n.nodeType === 4) && n.data.trim()) return [JSON.stringify(unspaced(n.data))];
+        return [];
+    });
+    return `<${el.tagName} ${attrs.join(' ')}>${children.join('')}</>`;
+}
+
+// Whether an element or anything in it holds a value (an attribute or text): one that holds none,
+// like <conditions><event_cue_signalled/></conditions>, is bare structure, not Head Hunter's code
+const holdsValue = (el) => el.attributes.length > 0 || Array.from(el.childNodes).some((n) => (n.nodeType === 1 ? holdsValue(n) : (n.nodeType === 3 || n.nodeType === 4) && n.data.trim()));
+
+// The reason in an <!-- hh-copy: reason --> comment directly above op, or null if there's none
+function copyMarker(op) {
+    let prev = op.previousSibling;
+    while (prev && prev.nodeType === 3 && !prev.data.trim()) prev = prev.previousSibling;
+    if (prev?.nodeType !== 8) return null;
+    return /^\s*hh-copy:\s*(\S.*?)\s*$/s.exec(prev.data)?.[1] ?? null;
+}
+
+// Check 5: the standing rule, no Head Hunter code in the repo. An element an add or replace op
+// writes (or any element inside one that has element children of its own: a copied one-line
+// param inside new code is fine, a copied block isn't) and holds a value must not equal, whole
+// subtree, an element
+// anywhere in the installed Head Hunter at hhDir (read at run time, never copied into the repo).
+// An intentional copy needs an <!-- hh-copy: reason --> comment directly above its op.
+export function checkCopies(extDir, hhDir) {
+    const notes = [];
+    const bad = [];
+    const known = new Set();
+    if (!fs.existsSync(hhDir)) return { notes, bad }; // checkDiffs reports the missing install
+    for (const rel of xmlFiles(hhDir)) {
+        let root;
+        try {
+            root = parseXml(fs.readFileSync(path.join(hhDir, rel), 'utf8')).documentElement;
+        } catch {
+            continue;
+        }
+        for (const el of [root, ...Array.from(root.getElementsByTagName('*'))]) known.add(subtreeKey(el));
+    }
+    for (const rel of xmlFiles(extDir)) {
+        let diff;
+        try {
+            diff = parseXml(fs.readFileSync(path.join(extDir, rel), 'utf8')).documentElement;
+        } catch {
+            continue; // the well-formed check fails it
+        }
+        if (diff.tagName !== 'diff') continue;
+        for (const op of elementChildren(diff).filter((el) => ['add', 'replace'].includes(el.tagName))) {
+            const copies = [];
+            const visit = (el, top) => {
+                if ((top || elementChildren(el).length) && holdsValue(el) && known.has(subtreeKey(el))) copies.push(el);
+                else elementChildren(el).forEach((child) => visit(child, false));
+            };
+            elementChildren(op).forEach((el) => visit(el, true));
+            if (!copies.length) continue;
+            const reason = copyMarker(op);
+            const head = opLabel(rel, op);
+            for (const el of copies) {
+                if (reason) notes.push(`${head}: copies <${el.tagName}> from Head Hunter (hh-copy: ${reason})`);
+                else bad.push(`${head}: <${el.tagName}> is a copy of one in Head Hunter: write it here, or give the reason in an <!-- hh-copy: reason --> comment directly above the op`);
+            }
+        }
+    }
+    return { notes, bad };
+}

@@ -83,7 +83,7 @@ test("checks libraries/equipmentmods.xml on vanilla (X4_PATH) + Timelines, with 
     });
     const swi = tree({ 'libraries/equipmentmods.xml': '<diff><replace sel="/equipmentmods"><equipmentmods><ship><hull ware="s"/></ship></equipmentmods></replace></diff>' });
     const hhWithMod = tree({ 'libraries/equipmentmods.xml': '<diff><add sel="//equipmentmods/ship"><radar ware="hh"/></add></diff>' });
-    const ext = tree({ 'libraries/equipmentmods.xml': `<diff><add sel="/equipmentmods/ship" if="not(//radar[@ware='hh'])"><radar ware="hh"/></add></diff>` });
+    const ext = tree({ 'libraries/equipmentmods.xml': `<diff><!-- hh-copy: re-adds Head Hunter's entry --><add sel="/equipmentmods/ship" if="not(//radar[@ware='hh'])"><radar ware="hh"/></add></diff>` });
     const r = run([ext], { HH_PATH: hhWithMod, X4_PATH: x4, SWI_PATH: swi });
     assert.equal(r.code, 0, r.out + r.err);
     assert.match(r.out, /ok {2}.*matches 1 node in Head Hunter before SWI; after it, \/\/radar\[@ware='hh'\] matches 1 node/);
