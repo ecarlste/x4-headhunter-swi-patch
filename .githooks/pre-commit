@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# The pre-commit guardrail (#31): refuses the commit while npm test or npm run check is red.
+# Enable it once per clone: git config core.hooksPath .githooks
+# It checks the working tree, not only what is staged.
+set -u
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+if [ ! -d node_modules ]; then
+    echo "pre-commit: node_modules is missing: run npm install, then commit again" >&2
+    exit 1
+fi
+
+run() {
+    local out
+    if ! out=$("$@" 2>&1); then
+        printf '%s\n' "$out" >&2
+        echo "pre-commit: $* failed: commit refused" >&2
+        exit 1
+    fi
+}
+run npm test
+run npm run check

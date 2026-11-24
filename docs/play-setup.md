@@ -2,6 +2,11 @@
 
 The **play setup** is profile `90000401` on the shared X4 8.00 install (`E:\SteamLibrary\steamapps\common\X4 Foundations - 8.00`). Head Hunter, SirNukes and the patch live once in the install's shared `extensions\` folder with their default set to off, and `90000401` turns them on. Every other profile leaves them off, so Head Hunter never leaks into `swibh`'s test profile (`90000201`), A Pirate's Life's (`90000301`) or the root profile. The decisions behind this are in #12 and #14.
 
+## Prerequisites
+
+- **A Pirate's Life's checkout** at `~/workspace/x4-pirates-life-mod` (or set `GAME_LOCK_SH` to its `tools/game-lock.sh`). `tools/play/play.sh` takes the shared game lock with that repo's `tools/game-lock.sh` and refuses to start without it. The play tests use the same script: without it they are skipped, with a message naming it.
+- Head Hunter, SirNukes and the patch in the install, with their defaults off (below), and the `90000401` profile.
+
 ## Once, and again after every reinstall or update of Head Hunter or SirNukes
 
 Set each mod's default to off in its **installed** `content.xml`. These are local edits to the install. Never commit them: the repo holds no Head Hunter files.
@@ -65,7 +70,7 @@ Do the same steps yourself: check steps 1–4, then hold the lock for the whole 
 node --test tools/play/
 ```
 
-They run the script against temp folders: a fake install, a fake profile root and a stub in place of the game. They use the real `game-lock.sh` from A Pirate's Life's checkout. Never point the tests at the real install or profiles.
+They run the script against temp folders: a fake install, a fake profile root and a stub in place of the game. They use the real `game-lock.sh` from A Pirate's Life's checkout (`GAME_LOCK_SH` overrides where), and are skipped when it isn't there. Never point the tests at the real install or profiles.
 
 ## Checks in game
 

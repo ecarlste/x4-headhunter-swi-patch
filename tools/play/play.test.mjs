@@ -1,6 +1,6 @@
 // Tests for tools/play/play.sh, the 90000401 play setup, run against temp dirs only:
 // a fake install, a fake profile root and a stub in place of the game. Run: node --test tools/play/
-import { test } from 'node:test';
+import { test as nodeTest } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -9,6 +9,13 @@ import path from 'node:path';
 
 const here = path.dirname(new URL(import.meta.url).pathname);
 const script = path.join(here, 'play.sh');
+
+// The script takes the shared game lock with A Pirate's Life's tools/game-lock.sh, from that
+// repo's checkout (the same default as play.sh); without it, every test here is skipped
+const gameLockSh = process.env.GAME_LOCK_SH || path.join(os.homedir(), 'workspace/x4-pirates-life-mod/tools/game-lock.sh');
+const skip = !fs.existsSync(gameLockSh) &&
+    `A Pirate's Life's game-lock script not found at ${gameLockSh}: clone that repo there or set GAME_LOCK_SH (see docs/play-setup.md)`;
+const test = (name, fn) => nodeTest(name, { skip }, fn);
 
 // A fake world: install with extensions, profile root with 90000401 and the other profiles
 function world({ extensions = defaultExtensions(), profileConfig = defaultConfig() } = {}) {

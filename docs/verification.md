@@ -21,6 +21,16 @@ npm run check      # or: node tools/offline-check/cli.mjs [extension folder ...]
 npm test           # every test under tools/, including the same check as a test
 ```
 
+### The pre-commit guardrail
+
+`.githooks/pre-commit` runs `npm test` and `npm run check` before every commit and refuses the commit when either fails, showing that command's output. Without `node_modules` it refuses with "run npm install". Enable it once per clone:
+
+```
+git config core.hooksPath .githooks
+```
+
+It checks the working tree, not only what is staged. Its tests are in `tools/hooks/`.
+
 It checks `patch/hh_swi_patch/` and `checks/hh_swi_checks/`:
 
 - every XML file is well-formed (strict UTF-8, then a strict parser: X4 skips a file it can't parse);
