@@ -12,6 +12,10 @@ _Avoid_: fork, compat mod, port
 Behaviour that Head Hunter's changelog or mod page promises. "Works as advertised" means it behaves the way Chillmatica describes it, in the Star Wars setting. It does not mean rebalanced for SWI.
 _Avoid_: feature parity, 100% working
 
+**hh-copy marker**:
+A note on a patch change that knowingly repeats Head Hunter's own code, giving the reason no smaller change can do the job. Any other copy of Head Hunter's code is refused.
+_Avoid_: copy exception, allowed copy
+
 ## Head Hunter's world
 
 **The player's ships**:
@@ -66,3 +70,15 @@ A feature that fails on vanilla X4 too, not only with SWI. It is Chillmatica's t
 **Check helper**:
 A test-only extension, separate from the patch and off in normal play, that adds log lines, shorter timings and shortcut buttons so checks are quick to run and their results can be seen.
 _Avoid_: test harness, debug mode, test mod
+
+**Log reader**:
+The tool that reads a session's game log and says which errors from Head Hunter, the patch or the check helper fail the checklist and which are known harmless.
+_Avoid_: log parser, log checker
+
+**Known-harmless list**:
+The errors that are known not to break anything, each with a note saying why. The log reader passes them; every other error fails.
+_Avoid_: allowlist, ignore list
+
+**Pre-commit guardrail**:
+The rule that a commit is refused while the repo's offline tests or checks fail.
+_Avoid_: commit hook, CI
