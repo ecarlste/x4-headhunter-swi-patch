@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The check helper's own cues (#22). Written here; it reads Head Hunter's wanted state
+     (global.$HeadHunterWantedTracker, global.$HHAllWanted, global.$HHAllPlayerWanted) and adds to
+     it the way Head Hunter's own cues do, but copies none of its code.
+
+     Where later tickets add things. Each piece stands alone, so it can be lifted out later:
+     1. Log lines: every helper line goes through the Log cue below, which adds the [hh-swi-check]
+        prefix in one place. From a diff op in Head Hunter's files (under
+        extensions/chillheadhunter/...), add one action after the node to report on:
+          <signal_cue_instantly cue="md.HH_SWI_Checks.Log" param="'claim: value %s'.[...]"/>
+        Group those ops in the diff file under a "Log lines (#n)" comment.
+     2. Buttons: one row line in Fill_Menu, plus one Button_* cue in the "Buttons" section.
+     3. Timing overrides: attribute <replace> ops in the diff files under
+        extensions/chillheadhunter/..., grouped under a "Timing overrides (#n)" comment, apart from
+        the log lines, each value set in exactly one op. The full pass needs the log lines on and
+        the overrides off, so the ticket that adds them also decides how they are switched off. -->
+<mdscript name="HH_SWI_Checks" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
+  <cues>
+
+    <!-- ===== Log ===== -->
+
+    <!-- Writes event.param (a string) to debuglog.txt as one [hh-swi-check] line -->
+    <cue name="Log" instantiate="true" namespace="this">
+      <conditions>
+        <event_cue_signalled/>
+      </conditions>
+      <actions>
+        <debug_text text="'[hh-swi-check] ' + event.param"/>
+      </actions>
+    </cue>
+
+    <!-- ===== Menu: "HH SWI checks" in SirNukes Extension Options (Simple Menu API) ===== -->
+
+    <!-- Simple Menu API's Reloaded fires on every game start and load; register each time -->
+    <cue name="Register_Menu" instantiate="true" namespace="this">
+      <conditions>
+        <event_cue_signalled cue="md.Simple_Menu_API.Reloaded"/>
+      </conditions>
+      <actions>
+        <signal_cue_instantly cue="md.Simple_Menu_API.Register_Options_Menu" param="table[
+          $id = 'hh_swi_checks',
+          $title = 'HH SWI checks',
+          $columns = 2,
+          $onOpen = Fill_Menu,
+        ]"/>
+      </actions>
+    </cue>
+
+    <!-- Builds the menu each time it opens: one line per button, in the order shown -->
+    <cue name="Fill_Menu" instantiate="true" namespace="this">
+      <conditions>
+        <event_cue_signalled/>
+      </conditions>
+      <actions>
+        <signal_cue_instantly cue="Add_Button_Row" param="table[$label = 'Make the targeted ship wanted', $tip = 'Puts the ship you have targeted on the Head Hunter wanted board', $onClick = Button_Make_Target_Wanted]"/>
+        <signal_cue_instantly cue="Add_Button_Row" param="table[$label = 'Print the wanted table', $tip = 'Writes every wanted ship to debuglog.txt as [hh-swi-check] lines', $onClick = Button_Print_Wanted_Table]"/>
+      </actions>
+    </cue>
+
+    <!-- One menu row: event.param = table[$label, $tip, $onClick (the button's cue)] -->
+    <cue name="Add_Button_Row" instantiate="true" namespace="this">
+      <conditions>
+        <event_cue_signalled/>
+      </conditions>
+      <actions>
+        <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row"/>
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[
+          $col = 1,
+          $text = event.param.$label,
+          $mouseOverText = event.param.$tip,
+        ]"/>
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Button" param="table[
+          $col = 2,
+          $text = table[$text = 'Run', $halign = 'center'],
+          $mouseOverText = event.param.$tip,
+          $onClick = event.param.$onClick,
+        ]"/>
+      </actions>
+    </cue>
+
+    <!-- ===== Buttons ===== -->
+
+    <!-- Make the targeted ship wanted: adds player.target to Head Hunter's wanted table and board
+         groups, as its own kill tracking does for a new killer -->
+    <cue name="Button_Make_Target_Wanted" instantiate="true" namespace="this">
+      <conditions>
+        <event_cue_signalled/>
+      </conditions>
+      <actions>
+        <!-- The board figure a helper-made wanted ship gets, and the faction its claim pays
+             reputation to (an SWI faction with a representative) -->
+        <set_value name="$value" exact="100000Cr"/>
+        <set_value name="$victimfaction" exact="faction.galempire"/>
+
+        <set_value name="$ship" exact="player.target"/>
+        <do_if value="not @$ship.isclass.ship">
+          <signal_cue_instantly cue="Log" param="'make wanted: no ship targeted'"/>
+        </do_if>
+        <do_elseif value="not global.$HeadHunterWantedTracker? or not global.$HHAllWanted?">
+          <signal_cue_instantly cue="Log" param="'make wanted: Head Hunter has no wanted table yet'"/>
+        </do_elseif>
+        <do_elseif value="global.$HeadHunterWantedTracker.{$ship}?">
+          <signal_cue_instantly cue="Log" param="'make wanted: %s %s is already wanted, value %s Cr'.[$ship.idcode, $ship.knownname, global.$HeadHunterWantedTracker.{$ship}.$value.formatted.default]"/>
+        </do_elseif>
+        <do_else>
+          <set_value name="global.$HeadHunterWantedTracker.{$ship}" exact="table[$killer = $ship, $value = $value, $lastseen = $ship.sector, $lastvictimfaction = $victimfaction, $lastseentime = player.age]"/>
+          <do_if value="not global.$HHAllWanted.indexof.{$ship}">
+            <add_to_group groupname="global.$HHAllWanted" object="$ship"/>
+          </do_if>
+          <do_if value="$ship.isplayerowned and global.$HHAllPlayerWanted? and not global.$HHAllPlayerWanted.indexof.{$ship}">
+            <add_to_group groupname="global.$HHAllPlayerWanted" object="$ship"/>
+          </do_if>
+          <signal_cue_instantly cue="Log" param="'make wanted: %s %s (%s) is now wanted, value %s Cr, player-owned %s'.[$ship.idcode, $ship.knownname, $ship.owner.id, $value.formatted.default, $ship.isplayerowned]"/>
+        </do_else>
+      </actions>
+    </cue>
+
+    <!-- Print the wanted table: one line per entry in Head Hunter's wanted table -->
+    <cue name="Button_Print_Wanted_Table" instantiate="true" namespace="this">
+      <conditions>
+        <event_cue_signalled/>
+      </conditions>
+      <actions>
+        <do_if value="not global.$HeadHunterWantedTracker? or not global.$HHAllWanted?">
+          <signal_cue_instantly cue="Log" param="'wanted table: Head Hunter has no wanted table yet'"/>
+        </do_if>
+        <do_else>
+          <signal_cue_instantly cue="Log" param="'wanted table: %s entries; on the board %s, player-owned on the board %s'.[global.$HeadHunterWantedTracker.keys.count, global.$HHAllWanted.count, @global.$HHAllPlayerWanted.count]"/>
+          <do_for_each name="$ship" valuename="$entry" in="global.$HeadHunterWantedTracker">
+            <signal_cue_instantly cue="Log" param="'wanted: %s %s (%s) value %s Cr, last seen %s, last victim faction %s, on the board %s, exists %s'.[@$ship.idcode, @$ship.knownname, @$ship.owner.id, @$entry.$value.formatted.default, @$entry.$lastseen.knownname, @$entry.$lastvictimfaction.id, global.$HHAllWanted.indexof.{$ship} gt 0, @$ship.exists]"/>
+          </do_for_each>
+        </do_else>
+        <!-- The last hunter pick is added here by the hunter-groups ticket (#24) -->
+      </actions>
+    </cue>
+
+  </cues>
+</mdscript>

@@ -18,4 +18,6 @@ test("the patch and the helper are well-formed and every sel matches one node in
     const r = spawnSync(process.execPath, [path.join(here, 'cli.mjs')], { cwd: REPO, encoding: 'utf8', env: { ...process.env, HH_PATH: hhPath } });
     assert.equal(r.status, 0, r.stdout + r.stderr);
     assert.match(r.stdout, /^ok {2}patch\/hh_swi_patch: \d+ XML files read$/m);
+    assert.match(r.stdout, /^ok {2}checks\/hh_swi_checks: content\.xml: id hh_swi_checks, off by default, requires hh_swi_patch/m);
+    assert.match(r.stdout, /^ok {2}checks\/hh_swi_checks: md\/hh_swi_checks\.xml: mdscript HH_SWI_Checks, /m);
 });

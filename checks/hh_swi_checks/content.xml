@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The check helper for the Head Hunter on SWI patch (spec #18, #22). Test-only: it adds
+     [hh-swi-check] log lines, shortcut buttons in its own "HH SWI checks" Extension Options menu,
+     and (later) shorter timings, so the checks in docs/verification.md are quick and their results
+     visible. It holds only content written here, never Head Hunter's own files. It loads after the
+     patch (and so after Head Hunter and SWI) and needs SirNukes for its menu. Off by default:
+     profile 90000401 turns it on only while checks run (tools/play/play.sh with checks on). -->
+<content id="hh_swi_checks" name="Head Hunter on SWI check helper" description="Test-only check helper for the Head Hunter on SWI patch: log lines and shortcut buttons. Never for play. Not a release." author="Erik S. Carlsten" version="1" date="2026-11-23" save="0" enabled="0">
+  <dependency version="800"/>
+  <dependency id="hh_swi_patch" name="Head Hunter on SWI patch"/>
+  <dependency id="ws_2992233767" name="Head Hunter"/>
+  <dependency id="ws_2042901274" name="SirNukes Mod Support APIs"/>
+</content>
