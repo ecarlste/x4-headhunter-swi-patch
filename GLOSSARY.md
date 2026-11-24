@@ -14,6 +14,10 @@ _Avoid_: feature parity, 100% working
 
 ## Head Hunter's world
 
+**The player's ships**:
+Every ship the player owns, whether or not the player is flying it, including fleet subordinates and their drones. Anything they do counts as the player's doing.
+_Avoid_: your ship (when it means only the one being flown)
+
 **General bounty**:
 The pay (and reputation) for a hostile ship that the player's ships attacked and that then died.
 _Avoid_: kill bounty, kill reward
@@ -34,5 +38,31 @@ _Avoid_: hunters, bounty hunter fleet, headhunters
 The list of factions that may send hunter groups.
 
 **Classic Baddies**:
-The option that limits wanted bounties to outlaw factions only (in vanilla: Xenon, Kha'ak, Scale Plate, Buccaneers).
+The option that limits wanted bounties to outlaw factions only (in vanilla: Xenon, Kha'ak, Scale Plate, Buccaneers; on SWI: Unknown Threat, Yuuzhan Vong, the Sith and the four pirate factions). Killing an outlaw faction's ship never makes the killer wanted.
 _Avoid_: pirates-only, no-faction-wanted
+
+## Playing it
+
+**Play setup**:
+The game profile and mods used to play Head Hunter on SWI, kept apart from `swibh`'s test install so neither leaks into the other.
+_Avoid_: test install, HH install
+
+## Checking it
+
+**Full pass**:
+One run of every check on the checklist, covering all advertised features, not just the ones the patch changes. It is how "works as advertised" gets signed off, and it is run again after Head Hunter or SWI updates.
+_Avoid_: regression run, test suite
+
+**Focused check**:
+A check on a feature the patch changes or that was dead before it: what to do, what to see on screen, and what the log shows.
+
+**Smoke check**:
+A short check on a feature the patch doesn't touch: one action with one stated expected result. It still runs in every full pass, so an upstream update that breaks the feature gets caught.
+_Avoid_: sanity check, spot check
+
+**Upstream bug**:
+A feature that fails on vanilla X4 too, not only with SWI. It is Chillmatica's to fix, not the patch's, unless a decision says otherwise.
+
+**Check helper**:
+A test-only extension, separate from the patch and off in normal play, that adds log lines, shorter timings and shortcut buttons so checks are quick to run and their results can be seen.
+_Avoid_: test harness, debug mode, test mod
