@@ -33,4 +33,13 @@
       <cancel_cue cue="this"/>
     </do_else>
   </add>
+
+  <!-- Fleet count (#25, bug fix 4, #11): the hunt target always counts in its own size class,
+       whatever its purpose; the player's other ships near it still count only when they are
+       fight ships. A lone wanted trader then draws hunters of its own size, instead of a group
+       of none whose missing leader made HuntersCreated's create_order fail every tick. -->
+  <replace sel="//cue[@name='SpawnHunters']/actions/do_all[@counter='$i']/do_if[@value='$supportingtargets.{$i}.isclass.ship_s and $supportingtargets.{$i}.primarypurpose == purpose.fight']/@value">$supportingtargets.{$i}.isclass.ship_s and ($supportingtargets.{$i}.primarypurpose == purpose.fight or $supportingtargets.{$i} == $playertarget)</replace>
+  <replace sel="//cue[@name='SpawnHunters']/actions/do_all[@counter='$i']/do_elseif[@value='$supportingtargets.{$i}.isclass.ship_m and $supportingtargets.{$i}.primarypurpose == purpose.fight']/@value">$supportingtargets.{$i}.isclass.ship_m and ($supportingtargets.{$i}.primarypurpose == purpose.fight or $supportingtargets.{$i} == $playertarget)</replace>
+  <replace sel="//cue[@name='SpawnHunters']/actions/do_all[@counter='$i']/do_elseif[@value='$supportingtargets.{$i}.isclass.ship_l and $supportingtargets.{$i}.primarypurpose == purpose.fight']/@value">$supportingtargets.{$i}.isclass.ship_l and ($supportingtargets.{$i}.primarypurpose == purpose.fight or $supportingtargets.{$i} == $playertarget)</replace>
+  <replace sel="//cue[@name='SpawnHunters']/actions/do_all[@counter='$i']/do_elseif[@value='$supportingtargets.{$i}.isclass.ship_xl and $supportingtargets.{$i}.primarypurpose == purpose.fight']/@value">$supportingtargets.{$i}.isclass.ship_xl and ($supportingtargets.{$i}.primarypurpose == purpose.fight or $supportingtargets.{$i} == $playertarget)</replace>
 </diff>
