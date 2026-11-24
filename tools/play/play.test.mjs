@@ -46,6 +46,7 @@ function defaultExtensions() {
         chillheadhunter: '<content id="ws_2992233767" name="Head Hunter" save="0" enabled="0" sync="false">',
         sn_mod_support_apis: '<content\n  id="ws_2042901274"\n  name="Mod Support APIs"\n  enabled="0">',
         hh_swi_patch: '<content id="hh_swi_patch" name="Head Hunter on SWI patch" save="0" enabled="0">',
+        hh_swi_checks: '<content id="hh_swi_checks" name="Head Hunter on SWI check helper" save="0" enabled="0">',
         apirateslife: '<content id="apirateslife" name="A Pirate\'s Life" version="100">',
         starwars_rsp: '<content id="Reaper\'s Ship Pack (SWI)" enabled="0">',
         mycu_equipment_tooltips: '<content id="EquipmentTooltips">',
@@ -97,8 +98,56 @@ test("writes the profile's content.xml: the play mods on, the other mods off, by
   <extension id="apirateslife" enabled="false" />
   <extension id="Reaper's Ship Pack (SWI)" enabled="false" />
   <extension id="EquipmentTooltips" enabled="false" />
+  <extension id="hh_swi_checks" enabled="false" />
 </content>
 `);
+});
+
+test('with --checks, switches the check helper on as well', () => {
+    const w = world();
+    const r = run(w, ['--checks']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(path.join(w.profile, 'content.xml')), `<?xml version="1.0" encoding="utf-8"?>
+<content>
+  <extension id="SW Interworlds" enabled="true" />
+  <extension id="ws_2992233767" enabled="true" />
+  <extension id="ws_2042901274" enabled="true" />
+  <extension id="hh_swi_patch" enabled="true" />
+  <extension id="hh_swi_checks" enabled="true" />
+  <extension id="apirateslife" enabled="false" />
+  <extension id="Reaper's Ship Pack (SWI)" enabled="false" />
+  <extension id="EquipmentTooltips" enabled="false" />
+</content>
+`);
+    assert.match(r.err, /check helper hh_swi_checks on/);
+});
+
+test('without --checks, the check helper stays off even when it is not installed', () => {
+    const ext = defaultExtensions();
+    delete ext.hh_swi_checks;
+    const w = world({ extensions: ext });
+    const r = run(w);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(path.join(w.profile, 'content.xml')), /<extension id="hh_swi_checks" enabled="false" \/>/);
+});
+
+test('refuses --checks while the check helper is not installed', () => {
+    const ext = defaultExtensions();
+    delete ext.hh_swi_checks;
+    const w = world({ extensions: ext });
+    const r = run(w, ['--checks']);
+    assert.notEqual(r.code, 0);
+    assert.match(r.err, /hh_swi_checks/);
+    assert.equal(launched(w), false);
+});
+
+test('refuses an unknown argument without touching anything', () => {
+    const w = world();
+    const r = run(w, ['--check']);
+    assert.notEqual(r.code, 0);
+    assert.match(r.err, /--check/);
+    assert.equal(launched(w), false);
+    assert.equal(fs.existsSync(path.join(w.profile, 'content.xml')), false);
 });
 
 test('refuses when an installed mod is in neither list, so nothing loads just by its default', () => {

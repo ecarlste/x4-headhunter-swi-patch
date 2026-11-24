@@ -35,8 +35,9 @@ It does the following, in order, and stops with a message at the first problem:
 6. **Writes the profile's `content.xml`.** Extensions are keyed by id, not by folder name:
    - on: `SW Interworlds`, `ws_2992233767` (Head Hunter), `ws_2042901274` (SirNukes), `hh_swi_patch` (the patch)
    - off: `apirateslife`, `Reaper's Ship Pack (SWI)` (RSP), `EquipmentTooltips` (Mycu)
+   - `hh_swi_checks` (the check helper): off, unless the script was started with `--checks` (`tools/play/play.sh --checks`, for check runs only; it then refuses if the helper isn't installed). See [verification.md](verification.md#the-check-helper).
 
-   `hh_swi_checks` gets added by the ticket that creates it. The script owns this file, so switches you make in the in-game Extensions menu are overwritten at the next launch.
+   The script owns this file, so switches you make in the in-game Extensions menu are overwritten at the next launch.
 7. **Sets `<uisafemode>false</uisafemode>`** in the profile's `config.xml`, keeping every other setting. Protected UI Mode blocks Head Hunter's Lua. Don't switch it in a running game: that hung the UI.
 8. **Starts `X4_nonsteam.exe`** from the install folder with `-skipintro -debug all -logfile debuglog.txt -scriptlogfiles -personalfolderid 90000401` and waits for it to exit. Then it releases the lock, whatever the game's exit code. If the script itself is killed, its lock stops getting heartbeats, and the next in line takes it over after 60 s. The log is `…\Egosoft\X4\90000401\debuglog.txt`.
 

@@ -8,12 +8,25 @@ X4_PROFILE_ROOT=${X4_PROFILE_ROOT:-'/mnt/c/Users/ecarl/OneDrive/Documents/Egosof
 PROFILE_ID=90000401
 PROFILE="$X4_PROFILE_ROOT/$PROFILE_ID"
 
-# Extension ids (content.xml keys on ids, not folder names). hh_swi_patch is the patch
-# (patch/hh_swi_patch/). hh_swi_checks is added here by the ticket that creates it.
-ON=('SW Interworlds' 'ws_2992233767' 'ws_2042901274' 'hh_swi_patch')
-OFF=('apirateslife' "Reaper's Ship Pack (SWI)" 'EquipmentTooltips')
+# Usage: tools/play/play.sh [--checks]
+#   --checks  also switch on the check helper hh_swi_checks (only while checks run, never in play)
 
 die() { echo "play: $*" >&2; exit 1; }
+
+CHECKS=''
+for arg in "$@"; do
+    case $arg in
+        --checks) CHECKS=1 ;;
+        *) die "unknown argument $arg (usage: $0 [--checks])" ;;
+    esac
+done
+
+# Extension ids (content.xml keys on ids, not folder names). hh_swi_patch is the patch
+# (patch/hh_swi_patch/); hh_swi_checks is the check helper (checks/hh_swi_checks/), on only
+# with --checks.
+ON=('SW Interworlds' 'ws_2992233767' 'ws_2042901274' 'hh_swi_patch')
+OFF=('apirateslife' "Reaper's Ship Pack (SWI)" 'EquipmentTooltips')
+if [ -n "$CHECKS" ]; then ON+=('hh_swi_checks'); else OFF+=('hh_swi_checks'); fi
 
 [ ! -e "$X4_PATH/extensions/swibh_tests" ] \
     || die "$X4_PATH/extensions/swibh_tests is left over from a killed swibh run; it hijacks the main menu. Remove it (or finish the swibh run) first"
@@ -54,6 +67,9 @@ for dir in "$X4_PATH"/extensions/*/; do
     [ -n "$listed" ] || die "extensions/${dir##*/} (id \"$id\") is in neither the on nor the off list in $0: add it to one"
 done
 
+[ -z "$CHECKS" ] || [ -f "$X4_PATH/extensions/hh_swi_checks/content.xml" ] \
+    || die "--checks, but the check helper isn't installed at $X4_PATH/extensions/hh_swi_checks: copy checks/hh_swi_checks/ there first"
+
 write_content_xml() {
     local id
     {
@@ -91,6 +107,11 @@ write_uisafemode_off
 
 ARGS=(-skipintro -debug all -logfile debuglog.txt -scriptlogfiles -personalfolderid "$PROFILE_ID")
 cd "$X4_PATH"
+if [ -n "$CHECKS" ]; then
+    echo "play: check helper hh_swi_checks on (checks only, never play)" >&2
+else
+    echo "play: check helper hh_swi_checks off" >&2
+fi
 echo "play: starting X4 in profile $PROFILE_ID; the game lock is held until it exits" >&2
 status=0
 if [ -n "${X4_LAUNCH:-}" ]; then
