@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The patch's own cues, written here (spec #18). They read and add to Head Hunter's wanted state
+     (global.$HeadHunterWantedTracker, global.$HHAllWanted) but copy none of its code. -->
+<mdscript name="HH_SWI_Patch" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
+  <cues>
+
+    <!-- S/M capture pays only for the player's work (#28, bug fix 2). Whenever any player-owned
+         ship (flown by the player or not, subordinates and drones too) attacks a ship on Head
+         Hunter's wanted board, stamp that ship's wanted entry with the time. SCapturedHandler
+         (patched in extensions/chillheadhunter/md/headhuntermd.xml) pays a bail only when this
+         stamp is under 60 s old. The stamp lives in the wanted entry, so it goes when the entry
+         does. -->
+    <cue name="Stamp_Player_Hit" instantiate="true" namespace="this">
+      <conditions>
+        <event_player_owned_attacked_object comment="param = attacker, param2 = target"/>
+        <check_value value="global.$HHAllWanted? and global.$HHAllWanted.indexof.{event.param2}"/>
+      </conditions>
+      <actions>
+        <do_if value="global.$HeadHunterWantedTracker.{event.param2}?">
+          <set_value name="global.$HeadHunterWantedTracker.{event.param2}.$hhswiplayerhit" exact="player.age"/>
+        </do_if>
+      </actions>
+    </cue>
+
+  </cues>
+</mdscript>
