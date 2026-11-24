@@ -33,4 +33,18 @@
       <cancel_cue cue="this"/>
     </do_else>
   </add>
+  <!-- Hunt lifecycle (#26), spec #18 bug fix 6: the hunt target stays fixed. HunterTimer used to
+       re-pick $playertarget (the most wanted player-owned ship) on every tick, so a second ship
+       passing the first mid-hunt moved the payoff and TargetClaimed onto a ship the hunters
+       weren't chasing. The pick now runs only when no hunt is running (no hunter in
+       global.$HHHunters), and just before SpawnHunters is signalled, after the orphan check, so
+       a group dropped by that check this tick still gets a fresh target. While hunters are out
+       (also while they retreat after a payoff, which removes $playertarget), it is left alone. -->
+  <remove sel="//cue[@name='HunterTimer']/actions/set_value[@name='$playertarget']"/>
+  <add sel="//cue[@name='HunterTimer']/actions/signal_cue_instantly[@cue='SpawnHunters']" pos="before">
+    <do_if value="global.$HHHunters.count == 0">
+      <set_value name="$playertarget" exact="global.$HHAllPlayerWanted.{1}"/>
+    </do_if>
+  </add>
+  <!-- /Hunt lifecycle (#26) -->
 </diff>

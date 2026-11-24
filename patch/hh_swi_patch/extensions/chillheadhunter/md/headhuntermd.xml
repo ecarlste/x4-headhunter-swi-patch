@@ -37,4 +37,12 @@
     </do_if>
   </add>
   <!-- /S/M capture pays (#28) -->
+  <!-- Hunt lifecycle (#26), spec #18 bug fix 5: language-proof drone checks. Head Hunter tests
+       a killer or claimer for a drone with typename == 'Drone', the ship type's display name, so
+       it only works in English. isunit (vanilla's own test for a carried drone, e.g.
+       aiscripts/lib.recall.subordinates.xml) doesn't depend on the language. The other two are in
+       aiscripts/headhunter.assassinate.xml. -->
+  <replace sel="//cue[@name='WantedDestructionTracker']/actions/do_if[@value=&quot;event.param.typename == 'Drone'&quot;]/@value">event.param.isunit</replace>
+  <replace sel="//cue[@name='WantedClaimTracker']/actions/do_if[@value=&quot;event.param.typename == 'Drone'&quot;]/@value">event.param.isunit</replace>
+  <!-- /Hunt lifecycle (#26) -->
 </diff>
