@@ -196,6 +196,61 @@
       </actions>
     </cue>
 
+    <!-- ===== Hunter scaling (#25) ===== -->
+
+    <!-- The fleet size, signalled from SpawnHunters once it has counted: event.param =
+         table[$S, $M, $L (hunters to spawn per size; an XL counts as 3 L), $difficulty, $target,
+         $near (the player-owned ships counted near the target, the target included)]. Logs the
+         sizes and difficulty, and each counted ship's class and purpose, so the sizes can be
+         checked against the player's fight ships (the target counts whatever its purpose). -->
+    <cue name="Fleet_Size" instantiate="true" namespace="this">
+      <conditions>
+        <event_cue_signalled/>
+      </conditions>
+      <actions>
+        <set_value name="$near" exact="if typeof event.param.$near == datatype.list then event.param.$near else []"/>
+        <set_value name="$ships" exact="''"/>
+        <do_for_each name="$s" in="$near">
+          <set_value name="$ships" exact="$ships + ' %s %s (%s, %s%s);'.[@$s.idcode, @$s.knownname, @$s.class, @$s.primarypurpose, if $s == event.param.$target then ', target' else '']"/>
+        </do_for_each>
+        <signal_cue_instantly cue="Log" param="'fleet size: S %s, M %s, L %s; difficulty %s at board value %s Cr; %s player-owned ships counted near the target:%s'.[event.param.$S, event.param.$M, event.param.$L, event.param.$difficulty, @global.$HeadHunterWantedTracker.{event.param.$target}.$value.formatted.default, $near.count, if $ships == '' then ' none' else $ships]"/>
+      </actions>
+    </cue>
+
+    <!-- Every ware that is an equipment mod, found once, for Hunter_Spawned's mods line -->
+    <cue name="Equipment_Mods" namespace="this">
+      <actions>
+        <set_value name="$wares" exact="[]"/>
+        <do_for_each name="$w" in="@ware.list">
+          <do_if value="$w.isequipmentmod">
+            <append_to_list name="$wares" exact="$w"/>
+          </do_if>
+        </do_for_each>
+      </actions>
+    </cue>
+
+    <!-- A hunter, signalled from HuntersCreated once its equipment mods are added: event.param =
+         table[$hunter, $difficulty]. Logs its macro, class and type (an L carrier is flagged:
+         the "carrier" check), then the equipment mods it has, by kind, and whether Head Hunter's
+         radar mod is defined (it has an equipmentmods entry) and installed. -->
+    <cue name="Hunter_Spawned" instantiate="true" namespace="this">
+      <conditions>
+        <event_cue_signalled/>
+      </conditions>
+      <actions>
+        <set_value name="$h" exact="event.param.$hunter"/>
+        <signal_cue_instantly cue="Log" param="'hunter: %s %s (%s), macro %s, class %s, type %s, purpose %s%s'.[@$h.idcode, @$h.knownname, @$h.owner.id, @$h.macro.id, @$h.class, @$h.type, @$h.primarypurpose, if @$h.type == shiptype.carrier then ' CARRIER' else '']"/>
+        <set_value name="$mods" exact="''"/>
+        <do_for_each name="$w" in="@Equipment_Mods.$wares">
+          <do_if value="($w.isenginemod and @$h.hasenginemod.{$w}) or ($w.isweaponmod and @$h.hasweaponmod.{$w}) or ($w.isshipmod and @$h.hasshipmod.{$w}) or ($w.isshieldmod and @$h.hasshieldmod.{$w})">
+            <set_value name="$mods" exact="$mods + ' ' + $w.id"/>
+          </do_if>
+        </do_for_each>
+        <set_value name="$radar" exact="ware.mod_ship_radarrange_01_mk1_headhunter"/>
+        <signal_cue_instantly cue="Log" param="'hunter mods: %s at difficulty %s:%s; radar mod defined %s, installed %s'.[@$h.idcode, event.param.$difficulty, if $mods == '' then ' none' else $mods, @$radar.isequipmentmod, @$h.hasshipmod.{$radar}]"/>
+      </actions>
+    </cue>
+
     <!-- Send hunters now: at the player-owned wanted ship with the highest board value, through
          the HHSWI_Send_Hunters_Now cue the helper adds beside HunterTimer -->
     <cue name="Button_Send_Hunters_Now" instantiate="true" namespace="this">

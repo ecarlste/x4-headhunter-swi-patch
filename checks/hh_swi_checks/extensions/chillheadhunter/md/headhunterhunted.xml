@@ -8,6 +8,16 @@
     <signal_cue_instantly cue="md.HH_SWI_Checks.Hunter_Pick" param="table[$faction = $SendingFaction, $eligible = @$hhswi_eligible, $target = $playertarget]"/>
   </add>
 
+  <!-- Log lines (#25): fleet sizes and difficulty once SpawnHunters has sized the group (after
+       its last line, the Difficulty debug_text), and each hunter's macro, class, type and
+       equipment mods in HuntersCreated, once its mods are added and before it joins the group -->
+  <add sel="//cue[@name='SpawnHunters']/actions/debug_text[@text=&quot;'HeadHunter: Difficulty: %s'.[$Difficulty]&quot;]" pos="after">
+    <signal_cue_instantly cue="md.HH_SWI_Checks.Fleet_Size" param="table[$S = $countS, $M = $countM, $L = $countL, $difficulty = $Difficulty, $target = $playertarget, $near = $supportingtargets]"/>
+  </add>
+  <add sel="//cue[@name='HuntersCreated']/actions/do_for_each[@name='$hunter']/add_to_group[@groupname='global.$HHHunters']" pos="before">
+    <signal_cue_instantly cue="md.HH_SWI_Checks.Hunter_Spawned" param="table[$hunter = $hunter, $difficulty = @$Difficulty]"/>
+  </add>
+
   <!-- Send hunters now (#24): the helper's button signals this cue with a wanted player-owned
        ship. It sits beside HunterTimer, so $playertarget is the same variable HunterTimer sets
        and SpawnHunters and HuntersCreated read. SpawnHunters' own condition (no hunters out)
