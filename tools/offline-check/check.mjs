@@ -376,9 +376,10 @@ export function checkOwnMd(extDir, knownElements) {
 }
 
 // An element as a comparable string: its tag, its attributes (in name order) and its children,
-// elements and non-blank text in order; comments, layout and spacing inside values
-// ([2013, 2111] is [2013,2111]) don't count
-const unspaced = (s) => s.replace(/\s+/g, '');
+// elements and non-blank text in order; comments, layout, spacing next to punctuation inside a
+// value ([2013, 2111] is [2013,2111]) and doubled spaces don't count, but a space between two
+// words does ("a b" is not "ab")
+const unspaced = (s) => s.trim().replace(/\s*([^\w\s])\s*/g, '$1').replace(/\s+/g, ' ');
 function subtreeKey(el) {
     const attrs = Array.from(el.attributes).map((a) => `${a.name}=${JSON.stringify(unspaced(a.value))}`).sort();
     const children = Array.from(el.childNodes).flatMap((n) => {

@@ -317,3 +317,28 @@ test("an element a diff adds or replaces must not equal one in Head Hunter (tag,
         ],
     });
 });
+
+test('spacing next to punctuation or doubled in a value does not hide a copy, but joining two words makes a different value', () => {
+    const target = tree({
+        'md/fake.xml': `<mdscript name="Fake"><cues><cue name="A"><actions>
+  <set_value name="$f" exact="[2013,2111,5023]"/>
+  <set_value name="$g" exact="faction.a  faction.b"/>
+  <debug_text text="a b"/>
+  <debug_text>one two</debug_text>
+</actions></cue></cues></mdscript>`,
+    });
+    const ext = tree({
+        'extensions/target/md/fake.xml': `<diff>
+  <add sel="/a"><set_value name="$f" exact="[2013, 2111, 5023]"/></add>
+  <add sel="/b"><set_value name="$g" exact="faction.a faction.b"/></add>
+  <add sel="/c"><debug_text text="ab"/></add>
+  <add sel="/d"><set_value name="$g" exact="faction.afaction.b"/></add>
+  <add sel="/e"><debug_text>onetwo</debug_text></add>
+</diff>`,
+    });
+    const why = 'is a copy of one in Head Hunter: write it here, or give the reason in an <!-- hh-copy: reason --> comment directly above the op';
+    assert.deepEqual(checkCopies(ext, target).bad, [
+        `extensions/target/md/fake.xml: <add sel="/a">: <set_value> ${why}`,
+        `extensions/target/md/fake.xml: <add sel="/b">: <set_value> ${why}`,
+    ]);
+});
