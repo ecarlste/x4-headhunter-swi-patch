@@ -20,11 +20,11 @@ Earlier tickets' findings live on `research/<name>` branches, each as `research/
 
 ## A new extension id goes in the play lists
 
-Every installed extension's id must be in `ON` or `OFF` at the top of `tools/play/play.sh`, or it refuses to launch. When a change adds an extension or changes an id in a `content.xml`, update the lists in the same commit.
+When a change adds an extension or changes an id in a `content.xml`, update `ON` and `OFF` at the top of `tools/play/play.sh` in the same commit; the script checks the lists itself.
 
 ## The guardrail hook
 
-`.githooks/pre-commit` refuses a commit while `npm test` or `npm run check` is red (`docs/verification.md`, "The pre-commit guardrail"). Enable it in this repo's config only (the command is there), never globally. A test that spawns a child passes it a cleaned environment:
+`docs/verification.md`, "The pre-commit guardrail", says what `.githooks/pre-commit` does and how to enable it. Enable it in this repo's config only, never globally. A test that spawns a child passes it a cleaned environment:
 
 - a child `git` drops every `GIT_*` variable, which the hook inherits from the commit and would point the child at this repo, as `tools/hooks/pre-commit.test.mjs` does;
 - a child `node --test` drops `NODE_TEST_CONTEXT`, which would send its report to the outer runner, as `tools/play/skip.test.mjs` does.
