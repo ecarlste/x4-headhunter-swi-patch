@@ -160,6 +160,115 @@ export function checkDiffs(extDir, targets) {
     return { notes, bad };
 }
 
+// Whether an op's if holds on doc, as X4 reads it: an XPath that is true, or selects something
+function ifHolds(cond, doc) {
+    const r = xpath.select(cond, doc);
+    return Array.isArray(r) ? r.length > 0 : Boolean(r);
+}
+
+// Applies one diff op to the one node its sel matched
+function applyOp(op, target, doc) {
+    const content = elementChildren(op).map((el) => doc.importNode(el, true));
+    if (op.tagName === 'add') {
+        const type = op.getAttribute('type');
+        if (type?.startsWith('@')) return target.setAttribute(type.slice(1), op.textContent);
+        const pos = op.getAttribute('pos') ?? 'append';
+        // a fixed reference node keeps the added nodes in their order
+        const ref = pos === 'after' ? target.nextSibling : pos === 'prepend' ? target.firstChild : null;
+        for (const node of content) {
+            if (pos === 'before') target.parentNode.insertBefore(node, target);
+            else if (pos === 'after') target.parentNode.insertBefore(node, ref);
+            else if (pos === 'prepend') target.insertBefore(node, ref);
+            else target.appendChild(node);
+        }
+    } else if (op.tagName === 'replace') {
+        if (target.nodeType === 2) target.value = op.textContent;
+        else if (content.length) target.parentNode.replaceChild(content[0], target);
+        else target.textContent = op.textContent;
+    } else if (op.tagName === 'remove') {
+        if (target.nodeType === 2) target.ownerElement.removeAttribute(target.name);
+        else target.parentNode.removeChild(target);
+    }
+}
+
+// Applies a <diff>'s ops to doc in order, as X4 does: an op whose if fails is skipped, and one
+// whose sel doesn't match exactly one node does nothing. Returns, per op, { op, ran, count }
+// (count: how many nodes its sel matched, or why it couldn't be counted).
+export function applyDiff(doc, diff) {
+    return elementChildren(diff).map((op) => ({ op, ...applyOne(doc, op) }));
+}
+
+function applyOne(doc, op) {
+    const cond = op.getAttribute('if');
+    if (cond !== null && !ifHolds(cond, doc)) return { ran: false, count: null };
+    const sel = op.getAttribute('sel') ?? '';
+    const count = countPath(sel, doc);
+    if (count === 1) applyOp(op, xpath.select(sel, doc)[0], doc);
+    return { ran: true, count };
+}
+
+// Check 2b: the extension's diffs of base-game libraries (libraries/*.xml at its root). Such a
+// file is patched by the game and by every mod before this extension, in an order that isn't
+// always fixed, so orders[rel] lists each load order to check: { label, files } with the base
+// game's file first, then each earlier diff in turn (all read at run time, never copied into the
+// repo). In each order every op that runs must match exactly one node, and a guarded add
+// (if="not(path)") must leave its path matching exactly one node, run or skipped: the entry
+// exists exactly once whatever the order. An op skipped in every order never runs.
+export function checkBaseDiffs(extDir, orders) {
+    const notes = [];
+    const bad = [];
+    for (const rel of xmlFiles(extDir).filter((r) => r.startsWith('libraries/'))) {
+        let diff;
+        try {
+            diff = parseXml(fs.readFileSync(path.join(extDir, rel), 'utf8')).documentElement;
+        } catch {
+            continue; // the well-formed check fails it
+        }
+        const scenarios = orders[rel];
+        if (!scenarios) {
+            bad.push(`${rel}: no base-game file and load orders are known to the checker`);
+            continue;
+        }
+        const ops = elementChildren(diff);
+        const ranSomewhere = ops.map(() => false);
+        let checked = 0;
+        for (const { label, files } of scenarios) {
+            const gone = files.find((f) => !fs.existsSync(f));
+            if (gone) {
+                bad.push(`${rel}: ${label}: ${gone} isn't there`);
+                continue;
+            }
+            const doc = parseXml(fs.readFileSync(files[0], 'utf8'));
+            for (const f of files.slice(1)) applyDiff(doc, parseXml(fs.readFileSync(f, 'utf8')).documentElement);
+            checked++;
+            for (const [i, op] of ops.entries()) {
+                const sel = op.getAttribute('sel') ?? '';
+                const cond = op.getAttribute('if');
+                const head = `${rel}: <${op.tagName} sel="${sel}"${cond === null ? '' : ` if="${cond}"`}>`;
+                const guard = cond === null ? null : /^\s*not\((.*)\)\s*$/s.exec(cond)?.[1];
+                const { ran, count } = applyOne(doc, op);
+                const after = guard ? countPath(guard, doc) : null;
+                if (!ran) {
+                    if (guard && after !== 1) bad.push(`${head}: skipped in ${label}, but ${guard} matches ${plural(after)} (want exactly 1)`);
+                    else notes.push(`${head}: skipped in ${label} (its if is false)${guard ? `; ${guard} matches ${plural(after)}` : ''}`);
+                    continue;
+                }
+                ranSomewhere[i] = true;
+                if (typeof count === 'string') bad.push(`${head}: ${count}`);
+                else if (count !== 1) bad.push(`${head} matches ${plural(count)} in ${label}`);
+                else if (guard && after !== 1) bad.push(`${head}: after it, ${guard} matches ${plural(after)} in ${label} (want exactly 1)`);
+                else notes.push(`${head} matches 1 node in ${label}${guard ? `; after it, ${guard} matches 1 node` : ''}`);
+            }
+        }
+        if (checked) for (const [i, op] of ops.entries()) {
+            if (ranSomewhere[i]) continue;
+            const cond = op.getAttribute('if');
+            bad.push(`${rel}: <${op.tagName} sel="${op.getAttribute('sel') ?? ''}"${cond === null ? '' : ` if="${cond}"`}>: its if is false in every load order, so it never runs`);
+        }
+    }
+    return { notes, bad };
+}
+
 // Check 3: the extension's content.xml names it by its folder (id = folder, so a dependency by id
 // and a path by folder can't be confused), ships off (only profile 90000401 turns it on), and
 // requires each id in requires (an optional dependency doesn't fix the load order it's there for)

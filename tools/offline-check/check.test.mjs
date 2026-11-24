@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { checkContent, checkDiffs, checkOwnMd, checkWellFormed, xsdElementNames } from './check.mjs';
+import { applyDiff, checkBaseDiffs, checkContent, checkDiffs, checkOwnMd, checkWellFormed, parseXml, xsdElementNames } from './check.mjs';
 
 // A temp folder with the given files (relative path -> text)
 function tree(files) {
@@ -182,4 +182,67 @@ test("the extension's own MD scripts: named after their file, unique cue names, 
         'md/my_checks.xml: <debug_txt> is not an element in X4\'s md.xsd or common.xsd',
         'md/notmd.xml: the root is <diff>, not <mdscript>',
     ]);
+});
+
+// Hand-written stand-ins for a base-game library and two mods' diffs of it, shaped like
+// equipmentmods.xml: one mod adds an entry, the other replaces the whole file
+const baseLibrary = '<equipmentmods><weapon/><ship><hull ware="mod_a"/></ship></equipmentmods>';
+const addsEntry = `<diff><add sel="//equipmentmods/ship"><radar ware="mod_x" min="2"/></add></diff>`;
+const replacesAll = `<diff><replace sel="/equipmentmods"><equipmentmods><ship><hull ware="mod_b"/></ship></equipmentmods></replace></diff>`;
+
+test('applyDiff applies add (append, before, after, prepend), element and attribute replace, remove, and skips an op whose if fails', () => {
+    const doc = parseXml('<a><b x="1"/><c/></a>');
+    applyDiff(doc, parseXml(`<diff>
+  <add sel="/a"><d/></add>
+  <add sel="/a/c" pos="before"><e/></add>
+  <add sel="/a/c" pos="after"><f/></add>
+  <add sel="/a" pos="prepend"><g/></add>
+  <replace sel="/a/b/@x">2</replace>
+  <replace sel="/a/d"><h/></replace>
+  <remove sel="/a/e"/>
+  <add sel="/a/c" if="not(/a/h)"><never/></add>
+</diff>`).documentElement);
+    assert.equal(doc.documentElement.toString(), '<a><g/><b x="2"/><c/><f/><h/></a>');
+});
+
+test('a base-game diff is checked on every load order of the files it patches: its sel matches one node, a guarded add leaves exactly one entry', () => {
+    const lib = tree({ 'base.xml': baseLibrary, 'adds.xml': addsEntry, 'replaces.xml': replacesAll });
+    const at = (n) => path.join(lib, n);
+    const orders = {
+        'libraries/equipmentmods.xml': [
+            { label: 'adder first', files: [at('base.xml'), at('adds.xml'), at('replaces.xml')] },
+            { label: 'replacer first', files: [at('base.xml'), at('replaces.xml'), at('adds.xml')] },
+        ],
+    };
+    const guarded = `<diff><add sel="/equipmentmods/ship" if="not(//radar[@ware='mod_x'])"><radar ware="mod_x" min="2"/></add></diff>`;
+    const good = tree({ 'libraries/equipmentmods.xml': guarded });
+    const head = `libraries/equipmentmods.xml: <add sel="/equipmentmods/ship" if="not(//radar[@ware='mod_x'])">`;
+    assert.deepEqual(checkBaseDiffs(good, orders), {
+        notes: [
+            `${head} matches 1 node in adder first; after it, //radar[@ware='mod_x'] matches 1 node`,
+            `${head}: skipped in replacer first (its if is false); //radar[@ware='mod_x'] matches 1 node`,
+        ],
+        bad: [],
+    });
+
+    // a sel for a node no order has misses in each; a guard that never holds means the op never runs
+    const broken = tree({ 'libraries/equipmentmods.xml': `<diff>
+  <add sel="/equipmentmods/engine"><radar ware="mod_y"/></add>
+  <add sel="/equipmentmods/ship" if="not(//hull)"><hull ware="mod_c"/></add>
+</diff>` });
+    assert.deepEqual(checkBaseDiffs(broken, orders).bad, [
+        'libraries/equipmentmods.xml: <add sel="/equipmentmods/engine"> matches 0 nodes in adder first',
+        'libraries/equipmentmods.xml: <add sel="/equipmentmods/engine"> matches 0 nodes in replacer first',
+        'libraries/equipmentmods.xml: <add sel="/equipmentmods/ship" if="not(//hull)">: its if is false in every load order, so it never runs',
+    ]);
+
+    // a guarded add whose guard path still misses after it ran (the added entry doesn't match it)
+    const mismatch = tree({ 'libraries/equipmentmods.xml': `<diff><add sel="/equipmentmods/ship" if="not(//radar[@ware='mod_z'])"><radar ware="mod_q"/></add></diff>` });
+    assert.match(checkBaseDiffs(mismatch, orders).bad[0], /after it, \/\/radar\[@ware='mod_z'\] matches 0 nodes in adder first \(want exactly 1\)$/);
+
+    // a library with no known load orders, or a missing file in one
+    const unknown = tree({ 'libraries/wares.xml': '<diff/>' });
+    assert.deepEqual(checkBaseDiffs(unknown, orders).bad, ['libraries/wares.xml: no base-game file and load orders are known to the checker']);
+    const missing = { 'libraries/equipmentmods.xml': [{ label: 'gone', files: [at('nope.xml')] }] };
+    assert.deepEqual(checkBaseDiffs(good, missing).bad, [`libraries/equipmentmods.xml: gone: ${at('nope.xml')} isn't there`]);
 });

@@ -76,6 +76,23 @@ test("checks the helper's and the patch's content.xml by folder name: the helper
     assert.match(r.out, /BAD .*content\.xml: no dependency on hh_swi_patch/);
 });
 
+test("checks libraries/equipmentmods.xml on vanilla (X4_PATH) + Timelines, with Head Hunter's and SWI's (SWI_PATH) diffs in either order", () => {
+    const x4 = tree({
+        'base/libraries/equipmentmods.xml': '<equipmentmods><engine/><ship><hull ware="v"/></ship></equipmentmods>',
+        'ego_dlc_timelines/libraries/equipmentmods.xml': '<diff><add sel="/equipmentmods/engine"><travel ware="t"/></add></diff>',
+    });
+    const swi = tree({ 'libraries/equipmentmods.xml': '<diff><replace sel="/equipmentmods"><equipmentmods><ship><hull ware="s"/></ship></equipmentmods></replace></diff>' });
+    const hhWithMod = tree({ 'libraries/equipmentmods.xml': '<diff><add sel="//equipmentmods/ship"><radar ware="hh"/></add></diff>' });
+    const ext = tree({ 'libraries/equipmentmods.xml': `<diff><add sel="/equipmentmods/ship" if="not(//radar[@ware='hh'])"><radar ware="hh"/></add></diff>` });
+    const r = run([ext], { HH_PATH: hhWithMod, X4_PATH: x4, SWI_PATH: swi });
+    assert.equal(r.code, 0, r.out + r.err);
+    assert.match(r.out, /ok {2}.*matches 1 node in Head Hunter before SWI; after it, \/\/radar\[@ware='hh'\] matches 1 node/);
+    assert.match(r.out, /ok {2}.*skipped in SWI before Head Hunter \(its if is false\); \/\/radar\[@ware='hh'\] matches 1 node/);
+    const noSwi = run([ext], { HH_PATH: hhWithMod, X4_PATH: x4, SWI_PATH: path.join(os.tmpdir(), 'no-such-swi') });
+    assert.equal(noSwi.code, 1);
+    assert.match(noSwi.out, /BAD .*no-such-swi.* isn't there/);
+});
+
 test("checks an extension's own MD scripts against X4's schema at X4_XSD_PATH", () => {
     const ext = tree({ 'md/mine.xml': '<mdscript name="Mine"><cues><cue name="A"/></cues></mdscript>' });
     const r = run([ext], { HH_PATH: hh(), X4_XSD_PATH: xsd() });
