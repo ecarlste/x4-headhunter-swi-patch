@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<diff>
+  <!-- L hunter selection: carriers are fleet support ships, not bounty hunters. -->
+  <add sel="/mdscript/cues/cue[@name='CreateHuntersL']//run_script[@name='md.lib.create.ships']/param[@name='shiptype']">
+    <param name="shiptype" value="!shiptype.carrier" />
+  </add>
+</diff>
