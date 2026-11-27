@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<content id="x4-headhunter-swi-patch" name="Head Hunter - SWI Patch" author="private" version="1.0">
+  <dependency id="chillheadhunter" version="2.0.8" />
+  <dependency id="starwarsmod_m1" version="0.91" />
+</content>
